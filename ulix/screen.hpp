@@ -1,8 +1,8 @@
 #pragma once
 
-#include <winfunc.hpp>
-#include <rect.hpp>
-#include <types.hpp>
+#include "winfunc.hpp"
+#include "rect.hpp"
+#include "types.hpp"
 
 namespace ulx {
     class screen {

@@ -1,20 +1,19 @@
 #pragma once
 
-#include <object.hpp>
-#include <__require_libraries/skarupke/flat_hash_map.hpp>
-#include <align.hpp>
-#include <file.hpp>
-#include <font.hpp>
-#include <pixmap.hpp>
-#include <rect.hpp>
-#include <vulkan/vulkan_core.h>
-#include <appinfo.hpp>
-#include <renderinfo.hpp>
-#include <wininfo.hpp>
-#include <__inside_impl/vulkan_classes.hpp>
-#include <__inside_impl/vulkan_shader_data_classes.hpp>
-#include <scene.hpp>
-#include <timer.hpp>
+#include "../object.hpp"
+#include "../__require_libraries/skarupke/flat_hash_map.hpp"
+#include "../align.hpp"
+#include "../file.hpp"
+#include "../font.hpp"
+#include "../pixmap.hpp"
+#include "../rect.hpp"
+#include "../appinfo.hpp"
+#include "../renderinfo.hpp"
+#include "../wininfo.hpp"
+#include "../__inside_impl/vulkan_classes.hpp"
+#include "../__inside_impl/vulkan_shader_data_classes.hpp"
+#include "../scene.hpp"
+#include "../timer.hpp"
 
 
 template<> struct std::hash<std::pair<ulx::file, ulx::rect>> {

@@ -1,10 +1,10 @@
 #pragma once
 
 
-#include <pixmap.hpp>
-#include <__inside_impl/vulkan_classes.hpp>
-#include <color.hpp>
-#include <log.hpp>
+#include "../pixmap.hpp"
+#include "../__inside_impl/vulkan_classes.hpp"
+#include "../color.hpp"
+#include "../log.hpp"
 #include <filesystem>
 #include <glm/glm.hpp>
 #include <fstream>

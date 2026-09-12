@@ -1,11 +1,12 @@
 #pragma once
 
-#include <file.hpp>
-#include <types.hpp>
-#include <font.hpp>
+#include "../log.hpp"
+#include "../file.hpp"
+#include "../types.hpp"
+#include "../font.hpp"
 #include <algorithm>
-#include <__require_libraries/skarupke/flat_hash_map.hpp>
-#include <__require_libraries/stb_truetype/stb_truetype.hpp>
+#include "../__require_libraries/skarupke/flat_hash_map.hpp"
+#include "../__require_libraries/stb_truetype/stb_truetype.hpp"
 
 namespace __uii::font {
     struct GlyphKey {

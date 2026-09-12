@@ -1,7 +1,6 @@
 #pragma once
 
-#include <log.hpp>
-#include <types.hpp>
+#include "types.hpp"
 #include <filesystem>
 #include <fstream>
 

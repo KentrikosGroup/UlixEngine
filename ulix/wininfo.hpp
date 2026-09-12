@@ -1,8 +1,8 @@
 #pragma once
 
-#include <rect.hpp>
-#include <winattr.hpp>
-#include <types.hpp>
+#include "rect.hpp"
+#include "winattr.hpp"
+#include "types.hpp"
 
 namespace ulx {
     class wininfo {

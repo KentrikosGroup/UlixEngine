@@ -2,10 +2,9 @@
 
 
 #include <vulkan/vulkan_core.h>
-#include <scene.hpp>
-#include <types.hpp>
-#include <log.hpp>
-#include <__inside_impl/vulkan_requirements.hpp>
+#include "../scene.hpp"
+#include "../types.hpp"
+#include "../log.hpp"
 #define NOMINMAX
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>

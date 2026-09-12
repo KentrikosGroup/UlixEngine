@@ -1,25 +1,24 @@
 #pragma once
 
 #include <vulkan/vulkan_core.h>
-#include <file.hpp>
-#include <pixmap.hpp>
-#include <renderinfo.hpp>
-#include <timer.hpp>
-#include <scene.hpp>
-#include <__inside_impl/vulkan_classes.hpp>
-#include <__inside_impl/vulkan_shader_data_classes.hpp>
-#include <__inside_impl/vulkan_algorithm.hpp>
-#include <__inside_impl/vulkan_requirements.hpp>
-#include <__class_decl/context.hpp>
-#include <macros.hpp>
-#include <rect.hpp>
-#include <log.hpp>
-#include <color.hpp>
-#include <object.hpp>
-#include <wininfo.hpp>
-#include <appinfo.hpp>
-#include <winfunc.hpp>
-#include <types.hpp>
+#include "file.hpp"
+#include "pixmap.hpp"
+#include "renderinfo.hpp"
+#include "timer.hpp"
+#include "scene.hpp"
+#include "__inside_impl/vulkan_classes.hpp"
+#include "__inside_impl/vulkan_shader_data_classes.hpp"
+#include "__inside_impl/vulkan_algorithm.hpp"
+#include "__inside_impl/vulkan_requirements.hpp"
+#include "__class_decl/context.hpp"
+#include "rect.hpp"
+#include "log.hpp"
+#include "color.hpp"
+#include "object.hpp"
+#include "wininfo.hpp"
+#include "appinfo.hpp"
+#include "winfunc.hpp"
+#include "types.hpp"
 #include <cstdint>
 #include <synchapi.h>
 #include <windef.h>
@@ -31,8 +30,8 @@
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 
-#include <__builtin_shaders/fragment_shader.inl>
-#include <__builtin_shaders/vertex_shader.inl>
+#include "__builtin_shaders/fragment_shader.inl"
+#include "__builtin_shaders/vertex_shader.inl"
 
 
 

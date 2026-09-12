@@ -1,7 +1,7 @@
 #pragma once
 
-#include <types.hpp>
-#include <pixmap.hpp>
+#include "types.hpp"
+#include "pixmap.hpp"
 
 namespace ulx {
     class renderinfo {

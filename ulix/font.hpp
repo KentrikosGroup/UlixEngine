@@ -1,7 +1,7 @@
 #pragma once
 
-#include <color.hpp>
-#include <types.hpp>
+#include "color.hpp"
+#include "types.hpp"
 
 namespace ulx {
     class font {

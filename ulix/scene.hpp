@@ -1,11 +1,11 @@
 #pragma once
 
-#include <screen.hpp>
-#include <rect.hpp>
-#include <types.hpp>
-#include <color.hpp>
-#include <object.hpp>
-#include <align.hpp>
+#include "screen.hpp"
+#include "rect.hpp"
+#include "types.hpp"
+#include "color.hpp"
+#include "object.hpp"
+#include "align.hpp"
 
 namespace ulx {
     class scene {

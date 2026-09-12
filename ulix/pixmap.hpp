@@ -1,19 +1,19 @@
 #pragma once
 
-#include <font.hpp>
-#include <__inside_impl/fontloader.hpp>
-#include <file.hpp>
-#include <log.hpp>
-#include <rect.hpp>
-#include <types.hpp>
+#include "font.hpp"
+#include "__inside_impl/fontloader.hpp"
+#include "file.hpp"
+#include "log.hpp"
+#include "rect.hpp"
+#include "types.hpp"
 #include <cassert>
 #define NOMINMAX
 #define WIN32_LEAN_AND_MEAN
 #include <wincodec.h>
 #include <winerror.h>
 #include <wrl/client.h>
-#include <__require_libraries/nanosvg/nanosvg.hpp>
-#include <__require_libraries/stb_image/stb_image.hpp>
+#include "__require_libraries/nanosvg/nanosvg.hpp"
+#include "__require_libraries/stb_image/stb_image.hpp"
 
 template<typename T> using Pointer = Microsoft::WRL::ComPtr<T>;
 
