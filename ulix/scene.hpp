@@ -1,5 +1,6 @@
 #pragma once
 
+#include "requires.hpp"
 #include "screen.hpp"
 #include "rect.hpp"
 #include "types.hpp"
@@ -12,17 +13,18 @@ namespace ulx {
         private:
             ulx::vec<object> objects;
             ulx::color background_color;
-            ulx::u8 alignment = ulx::align::Center;
-            ulx::u32 vpaddin = 5;
-            ulx::u32 hpaddin = 5;
-            ulx::layout objlayout = ulx::layout::none;
+            ulx::u8 alignment = ulx::alignleft | ulx::aligntop;
+            ulx::u32 paddin = 5;
+            ulx::layout layout_ = ulx::layout::nonebox;
     
         public:
             scene() = default;
     
         public:
-            inline auto child(object&& object) -> scene& {
-                objects.push_back(object);
+            template<typename O>
+                requires ulx::expect<O, ulx::object>
+            inline auto child(O&& object) -> scene& {
+                objects.push_back(std::forward<O>(object));
                 
                 return *this;
             }
@@ -37,24 +39,13 @@ namespace ulx {
                 return *this;
             }
     
-            inline auto vpadding(ulx::u32 padding) -> scene& {
-                vpaddin = padding;
-                return *this;
-            }
-    
-            inline auto hpadding(ulx::u32 padding) -> scene& {
-                hpaddin = padding;
-                return *this;
-            }
-    
             inline auto padding(ulx::u32 padding) -> scene& {
-                vpaddin = padding;
-                hpaddin = padding;
+                paddin = padding;
                 return *this;
             }
     
             inline auto layout(ulx::layout objlayout) -> scene& {
-                this->objlayout = objlayout;
+                this->layout_ = objlayout;
                 return *this;
             }
     
@@ -62,8 +53,7 @@ namespace ulx {
             inline auto get_objects() const -> const ulx::vec<object>& { return objects; }
             inline auto get_background_color() const -> const ulx::color& { return background_color; }
             inline auto get_alignment() const -> ulx::u8 { return alignment; }
-            inline auto get_vpadding() const -> ulx::u32 { return vpaddin; }
-            inline auto get_hpadding() const -> ulx::u32 { return hpaddin; }
-            inline auto get_layout() const -> ulx::layout { return objlayout; }
+            inline auto get_padding() const -> ulx::u32 { return paddin; }
+            inline auto get_layout() const -> ulx::layout { return layout_; }
     };
 }

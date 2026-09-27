@@ -8,7 +8,7 @@
 #include <glm/gtc/matrix_transform.hpp>
 
 namespace __uii::vsdces {
-    struct Vertex2D {
+    struct vertex2d {
         glm::vec2 position;
         glm::vec4 color;
         ulx::f32 corner_radius;
@@ -22,34 +22,34 @@ namespace __uii::vsdces {
         inline static auto get_binding_description() -> VkVertexInputBindingDescription {
             VkVertexInputBindingDescription binding_description{};
             binding_description.binding = 0;
-            binding_description.stride = sizeof(Vertex2D);
+            binding_description.stride = sizeof(vertex2d);
             binding_description.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
 
             return binding_description;
         }
 
         template<typename M>
-        inline static auto new_attrdesc(ulx::u32 location, VkFormat format, M Vertex2D::*member) -> VkVertexInputAttributeDescription {
+        inline static auto new_attrdesc(ulx::u32 location, VkFormat format, M vertex2d::*member) -> VkVertexInputAttributeDescription {
             VkVertexInputAttributeDescription vertex_input_attribute_description{};
             vertex_input_attribute_description.location = location;
             vertex_input_attribute_description.binding = 0;
             vertex_input_attribute_description.format = format;
-            vertex_input_attribute_description.offset = static_cast<ulx::u32>(reinterpret_cast<std::ptrdiff_t>(&(reinterpret_cast<Vertex2D const volatile*>(0)->*member)));
+            vertex_input_attribute_description.offset = static_cast<ulx::u32>(reinterpret_cast<std::ptrdiff_t>(&(reinterpret_cast<vertex2d const volatile*>(0)->*member)));
 
             return vertex_input_attribute_description;
         }
 
         inline static auto get_attribute_descriptions() -> ulx::vec<VkVertexInputAttributeDescription> {
             ulx::vec<VkVertexInputAttributeDescription> attribute_descriptions;
-            attribute_descriptions.push_back(new_attrdesc(0, VK_FORMAT_R32G32_SFLOAT, &Vertex2D::position));
-            attribute_descriptions.push_back(new_attrdesc(1, VK_FORMAT_R32G32B32A32_SFLOAT, &Vertex2D::color));
-            attribute_descriptions.push_back(new_attrdesc(2, VK_FORMAT_R32_SFLOAT, &Vertex2D::corner_radius));
-            attribute_descriptions.push_back(new_attrdesc(3, VK_FORMAT_R32G32_SFLOAT, &Vertex2D::half_size));
-            attribute_descriptions.push_back(new_attrdesc(4, VK_FORMAT_R32_SFLOAT, &Vertex2D::border_width));
-            attribute_descriptions.push_back(new_attrdesc(5, VK_FORMAT_R32G32B32A32_SFLOAT, &Vertex2D::border_color));
-            attribute_descriptions.push_back(new_attrdesc(6, VK_FORMAT_R32G32_SFLOAT, &Vertex2D::center));
-            attribute_descriptions.push_back(new_attrdesc(7, VK_FORMAT_R32G32_SFLOAT, &Vertex2D::uv));
-            attribute_descriptions.push_back(new_attrdesc(8, VK_FORMAT_R32_UINT, &Vertex2D::tex_index));
+            attribute_descriptions.push_back(new_attrdesc(0, VK_FORMAT_R32G32_SFLOAT, &vertex2d::position));
+            attribute_descriptions.push_back(new_attrdesc(1, VK_FORMAT_R32G32B32A32_SFLOAT, &vertex2d::color));
+            attribute_descriptions.push_back(new_attrdesc(2, VK_FORMAT_R32_SFLOAT, &vertex2d::corner_radius));
+            attribute_descriptions.push_back(new_attrdesc(3, VK_FORMAT_R32G32_SFLOAT, &vertex2d::half_size));
+            attribute_descriptions.push_back(new_attrdesc(4, VK_FORMAT_R32_SFLOAT, &vertex2d::border_width));
+            attribute_descriptions.push_back(new_attrdesc(5, VK_FORMAT_R32G32B32A32_SFLOAT, &vertex2d::border_color));
+            attribute_descriptions.push_back(new_attrdesc(6, VK_FORMAT_R32G32_SFLOAT, &vertex2d::center));
+            attribute_descriptions.push_back(new_attrdesc(7, VK_FORMAT_R32G32_SFLOAT, &vertex2d::uv));
+            attribute_descriptions.push_back(new_attrdesc(8, VK_FORMAT_R32_UINT, &vertex2d::tex_index));
 
             return attribute_descriptions;
         }

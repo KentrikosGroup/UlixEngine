@@ -109,12 +109,12 @@ namespace __uii::font {
             return &it->second.info;
 
         ulx::str font_path = key; if (!ulx::file(key).exists()) font_path = "C:\\Windows\\Fonts\\" + key;
-        ulx::file font_file(font_path); if (!font_file.exists()) ulx::log::ulixerr("failed to find font file: {}", font_path);
-        ulx::bytes bytes = font_file.read_bytes(); if (bytes.empty()) ulx::log::ulixerr("failed to read font file: {}", font_path);
+        ulx::file font_file(font_path); if (!font_file.exists()) ulx::log::err("failed to find font file: {}", font_path);
+        ulx::bytes bytes = font_file.read_bytes(); if (bytes.empty()) ulx::log::err("failed to read font file: {}", font_path);
 
         FontData data { .bytes = std::move(bytes) };
         if (!stbtt_InitFont(&data.info, data.bytes.data(), 0))
-            ulx::log::ulixerr("failed to initialize font (stb_truetype): {}", font_path);
+            ulx::log::err("failed to initialize font (stb_truetype): {}", font_path);
 
         return &font_cache.emplace(key, std::move(data)).first->second.info;
     }
@@ -139,7 +139,7 @@ namespace __uii::font {
         int width, height, x_offset, y_offset;
 
         ulx::u8* bitmap = stbtt_GetCodepointBitmap(fontinfo, scale, scale, codepoint, &width, &height, &x_offset, &y_offset);
-        if (!bitmap) ulx::log::ulixerr("failed to get glyph bitmap (stb_truetype)");
+        if (!bitmap) ulx::log::err("failed to get glyph bitmap (stb_truetype)");
 
         int advance; stbtt_GetCodepointHMetrics(fontinfo, codepoint, &advance, nullptr);
         GlyphValue glyph_value{};

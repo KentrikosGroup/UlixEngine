@@ -178,7 +178,7 @@ namespace __uii::vkclses {
             buffer_create_info.usage = usage;
             buffer_create_info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
             if (vkCreateBuffer(logical_device, &buffer_create_info, nullptr, &buffer) != VK_SUCCESS)
-                ulx::log::ulixerr("Failed to create buffer");
+                ulx::log::err("Failed to create buffer");
 
             VkMemoryRequirements buffer_memory_requirements;
             vkGetBufferMemoryRequirements(logical_device, buffer, &buffer_memory_requirements);
@@ -188,10 +188,10 @@ namespace __uii::vkclses {
             buffer_memory_allocate_info.allocationSize = buffer_memory_requirements.size;
             buffer_memory_allocate_info.memoryTypeIndex = find_memory_type(physical_device, buffer_memory_requirements.memoryTypeBits, properties);
             if (vkAllocateMemory(logical_device, &buffer_memory_allocate_info, nullptr, &buffer_memory) != VK_SUCCESS)
-                ulx::log::ulixerr("Failed to allocate buffer memory");
+                ulx::log::err("Failed to allocate buffer memory");
 
             if (vkBindBufferMemory(logical_device, buffer, buffer_memory, 0) != VK_SUCCESS)
-                ulx::log::ulixerr("Failed to bind buffer memory");
+                ulx::log::err("Failed to bind buffer memory");
         }
 
         inline auto map_memory(VkDevice device, const void* data, VkDeviceSize size) -> void {
@@ -248,7 +248,7 @@ namespace __uii::vkclses {
                 }
             }
 
-            ulx::log::ulixerr("Failed to find suitable memory type");
+            ulx::log::err("Failed to find suitable memory type");
         }
     };
 

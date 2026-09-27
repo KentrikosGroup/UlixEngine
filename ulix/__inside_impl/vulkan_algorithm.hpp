@@ -11,10 +11,10 @@
 
 namespace __uii::vkalg {
     inline static constexpr glm::vec4 color_to_vec4(const ulx::color& color) {
-        return glm::vec4(color.get_red() / 255.0f,
-                         color.get_green() / 255.0f,
-                         color.get_blue() / 255.0f,
-                         color.get_alpha() / 255.0f);
+        return glm::vec4(color.red() / 255.0f,
+                         color.green() / 255.0f,
+                         color.blue() / 255.0f,
+                         color.alpha() / 255.0f);
     }
 
     inline auto get_device_score(const __uii::vkclses::PhysicalDeviceInfos& device_infos) -> ulx::u32 {
@@ -43,7 +43,7 @@ namespace __uii::vkalg {
             }
         }
 
-        ulx::log::ulixerr("Failed to find suitable memory type");
+        ulx::log::err("Failed to find suitable memory type");
     }
 
     inline auto start_single_time_command_buffer(VkDevice device, VkCommandPool command_pool) -> VkCommandBuffer {
@@ -55,27 +55,27 @@ namespace __uii::vkalg {
         command_buffer_allocate_info.commandBufferCount = 1;
         command_buffer_allocate_info.commandPool = command_pool;
         if (vkAllocateCommandBuffers(device, &command_buffer_allocate_info, &command_buffer))
-            ulx::log::ulixerr("Failed to allocate single time command buffer");
+            ulx::log::err("Failed to allocate single time command buffer");
 
         VkCommandBufferBeginInfo command_buffer_begin_info{};
         command_buffer_begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
         command_buffer_begin_info.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
         if (vkBeginCommandBuffer(command_buffer, &command_buffer_begin_info))
-            ulx::log::ulixerr("Failed to begin single time command buffer");
+            ulx::log::err("Failed to begin single time command buffer");
 
         return command_buffer;
     }
 
     inline auto end_single_time_command_buffer(VkDevice device, VkQueue queue, VkCommandPool command_pool, VkCommandBuffer command_buffer) -> void {
         if (vkEndCommandBuffer(command_buffer))
-            ulx::log::ulixerr("Failed to end single time command buffer");
+            ulx::log::err("Failed to end single time command buffer");
 
         VkSubmitInfo submit_info{};
         submit_info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
         submit_info.commandBufferCount = 1;
         submit_info.pCommandBuffers = &command_buffer;
         if (vkQueueSubmit(queue, 1, &submit_info, nullptr))
-            ulx::log::ulixerr("Failed to submit single time command buffer");
+            ulx::log::err("Failed to submit single time command buffer");
 
         vkQueueWaitIdle(queue);
         vkFreeCommandBuffers(device, command_pool, 1, &command_buffer);
@@ -109,7 +109,7 @@ namespace __uii::vkalg {
 
             src_stage = VK_PIPELINE_STAGE_TRANSFER_BIT;
             dst_stage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
-        } else ulx::log::ulixerr("Invalid layout format");
+        } else ulx::log::err("Invalid layout format");
 
         vkCmdPipelineBarrier(single_buffer, src_stage, dst_stage, 0, 0, nullptr, 0, nullptr, 1, &image_memory_barrier);
     }
@@ -141,7 +141,7 @@ namespace __uii::vkalg {
         image_view_create_info.subresourceRange.baseArrayLayer = 0;
         image_view_create_info.subresourceRange.layerCount = 1;
         if (vkCreateImageView(device, &image_view_create_info, nullptr, &image_view) != VK_SUCCESS)
-            ulx::log::ulixerr("Failed to create image view");
+            ulx::log::err("Failed to create image view");
 
         return image_view;
     }
@@ -153,7 +153,7 @@ namespace __uii::vkalg {
     /* ============================== File Algorithm ============================== */
     inline auto read_cache(const ulx::str& file_path) -> ulx::vec<char> {
         std::ifstream file = std::ifstream(file_path, std::ios::ate | std::ios::binary);
-        if (!file.is_open()) ulx::log::ulixerr("Failed to read cache");
+        if (!file.is_open()) ulx::log::err("Failed to read cache");
         size_t file_size = (size_t) file.tellg();
         ulx::vec<char> buffer = ulx::vec<char>(file_size);
         file.seekg(0, std::ios::beg);
@@ -164,7 +164,7 @@ namespace __uii::vkalg {
 
     inline void write_cache(const ulx::str& file_path, const ulx::vec<char>& buffer) {
         std::ofstream file = std::ofstream(file_path, std::ios::binary);
-        if (!file.is_open()) ulx::log::ulixerr("Failed to write cache");
+        if (!file.is_open()) ulx::log::err("Failed to write cache");
         file.write(buffer.data(), buffer.size());
         file.close();
     }

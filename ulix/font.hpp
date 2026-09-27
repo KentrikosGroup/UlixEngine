@@ -20,9 +20,7 @@ namespace ulx {
                 font_color(color), sc(scale)
             {}
     
-            bool operator==(const font& other) const {
-                return font_name == other.font_name && font_size == other.font_size && font_color == other.font_color && sc == other.sc;
-            };
+            inline constexpr auto operator==(const font& other) const  -> bool = default;
     
             inline auto name(const ulx::str& name) -> font& {
                 font_name = name;

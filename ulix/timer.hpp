@@ -2,19 +2,20 @@
 
 #include "types.hpp"
 #include <chrono>
+#include <thread>
 
 namespace chrono = std::chrono;
 
 namespace ulx {
     template<typename... Args> class timer {
         private:
-            using TimeoutTask = void(*)(timer&, Args&...);
+            using timeout_event = void(*)(timer&, Args&...);
     
         private:
             ulx::i64 last_time;
             ulx::u64 last_timeout_delay = 0;
             ulx::u64 timeout_delay = 0;
-            ulx::vec<TimeoutTask> timeout_events;
+            ulx::vec<timeout_event> timeout_events;
     
         public:
             inline constexpr timer():
@@ -39,17 +40,20 @@ namespace ulx {
                 return *this;
             }
     
-            inline auto event(TimeoutTask event) -> timer& {
+            inline auto event(timeout_event event) -> timer& {
                 timeout_events.push_back(event);
                 return *this;
             }
     
         public:
             inline void update(Args&... args) {
-                if (get_delta() > static_cast<ulx::i32>(last_timeout_delay) && !timeout_events.empty()) {
+                if (timeout_delay > static_cast<ulx::i32>(last_timeout_delay) && !timeout_events.empty()) {
                     last_timeout_delay += timeout_delay;
-                    for (const auto& event : timeout_events)
-                        event(*this, args...);
+
+                    std::thread([&]() {
+                        for (auto& event : timeout_events)
+                            event(*this, args...);
+                    }).detach();
                 }
             }
     };

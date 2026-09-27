@@ -1,9 +1,9 @@
 #pragma once
 
 namespace ulx {
-    enum class layout {
-        none,
-        ver,
-        hor,
+    enum layout {
+        nonebox,
+        verbox,
+        horbox,
     };
 }

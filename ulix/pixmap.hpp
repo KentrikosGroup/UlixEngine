@@ -4,6 +4,7 @@
 #include "__inside_impl/fontloader.hpp"
 #include "file.hpp"
 #include "log.hpp"
+#include "recsize.hpp"
 #include "rect.hpp"
 #include "types.hpp"
 #include <cassert>
@@ -15,7 +16,7 @@
 #include "__require_libraries/nanosvg/nanosvg.hpp"
 #include "__require_libraries/stb_image/stb_image.hpp"
 
-template<typename T> using Pointer = Microsoft::WRL::ComPtr<T>;
+template<typename T> using aptr = Microsoft::WRL::ComPtr<T>;
 
 
 namespace ulx {
@@ -35,7 +36,7 @@ namespace ulx {
                 ulx::i32 texture_width = 0, texture_height = 0, texture_channels = 0;
     
                 ulx::u8* data = stbi_load(file_path.c_str(), &texture_width, &texture_height, &texture_channels, STBI_rgb_alpha);
-                if (!data) ulx::log::ulixerr("failed to load image (stb_image): {}", file_path, stbi_failure_reason());
+                if (!data) ulx::log::err("failed to load image (stb_image): {}", file_path, stbi_failure_reason());
                 ulx::vec<ulx::u8> texture_pixels(data, data + texture_width * texture_height * 4);
                 stbi_image_free(data);
     
@@ -45,7 +46,7 @@ namespace ulx {
             inline static auto from_vector(const ulx::file& image_file, ulx::u32 width, ulx::u32 height) -> pixmap {
                 ulx::str file_path = image_file.get_file_path();
                 NSVGimage* svg = nsvgParseFromFile(file_path.c_str(), "px", 96.0f);
-                if (!svg) ulx::log::ulixerr("failed to parse svg (nanosvg): {}", file_path);
+                if (!svg) ulx::log::err("failed to parse svg (nanosvg): {}", file_path);
                 NSVGrasterizer* rast = nsvgCreateRasterizer();
     
                 width *= 2; height *= 2;
@@ -68,12 +69,12 @@ namespace ulx {
     
                 ulx::u32 width = static_cast<ulx::u32>(text_layout.total_width);
                 ulx::u32 height = static_cast<ulx::u32>(text_layout.total_height);
-                if (width == 0 || height == 0) ulx::log::ulixerr("failed to rasterize text (stb_truetype): empty text bounds");
+                if (width == 0 || height == 0) ulx::log::err("failed to rasterize text (stb_truetype): empty text bounds");
     
                 ulx::bytes pixels(static_cast<ulx::size>(width * height * 4));
                 ulx::color color = font.get_color();
-                ulx::u8 red = color.get_red(), green = color.get_green(), blue = color.get_blue();
-                float alpha_scale = color.get_alpha() / 255.0f;
+                ulx::u8 red = color.red(), green = color.green(), blue = color.blue();
+                float alpha_scale = color.alpha() / 255.0f;
     
                 // Stitch text bitmaps
                 for (const __uii::font::TextLayout::GlyphPosition& glyph_position : text_layout.glyphs) {
@@ -97,7 +98,7 @@ namespace ulx {
             }
     
         public:
-            auto get_rect() const -> ulx::rect { return ulx::rect(0, 0, texture_width, texture_height); }
+            auto get_size() const -> ulx::recsize { return ulx::recsize(texture_width, texture_height); }
             auto get_pixel_size() const -> ulx::u64 { return texture_size; }
             auto get_pixels() const -> const ulx::vec<ulx::u8> { return texture_pixels; }
     };

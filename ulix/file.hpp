@@ -1,5 +1,6 @@
 #pragma once
 
+#include "requires.hpp"
 #include "types.hpp"
 #include <filesystem>
 #include <fstream>
@@ -10,9 +11,15 @@ namespace ulx {
             ulx::str file_path;
     
         public:
-            file() = default;
-            file(const ulx::str file_path): file_path(file_path) {}
-            bool operator==(const file&) const = default;
+            inline constexpr file() = default;
+            
+            template<typename S>
+                requires ulx::expect<S, ulx::str>
+            inline constexpr file(S&& file_path): file_path(std::forward<S>(file_path)) {}
+            
+            inline constexpr auto operator==(const file& other) const -> bool {
+                return file_path == other.file_path;
+            }
     
             inline auto read_string() const -> ulx::str {
                 std::ifstream file_handle = std::ifstream(file_path);

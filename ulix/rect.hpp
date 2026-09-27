@@ -50,7 +50,7 @@ template<> struct std::hash<ulx::rect> {
 };
 
 template<> struct std::equal_to<ulx::rect> {
-    bool operator()(const ulx::rect& a, const ulx::rect& b) const noexcept {
-        return a.get_x() == b.get_x() && a.get_y() == b.get_y() && a.get_width() == b.get_width() && a.get_height() == b.get_height();
+    bool operator()(const ulx::rect& a, const ulx::rect& b) const {
+        return a == b;
     }
 };
