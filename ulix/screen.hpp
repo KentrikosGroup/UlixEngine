@@ -2,7 +2,6 @@
 
 #include "recsize.hpp"
 #include "winfunc.hpp"
-#include "rect.hpp"
 #include "types.hpp"
 #include "log.hpp"
 

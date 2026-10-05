@@ -5,6 +5,7 @@
 #include "../__inside_impl/vulkan_classes.hpp"
 #include "../color.hpp"
 #include "../log.hpp"
+#include "../present_mode.hpp"
 #include <filesystem>
 #include <glm/glm.hpp>
 #include <fstream>

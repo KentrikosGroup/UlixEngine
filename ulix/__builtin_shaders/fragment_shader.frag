@@ -18,7 +18,7 @@ float rounded_box_sdf(vec2 position, vec2 bounds, float radius) {
     vec2 delta = abs(position) - bounds + radius;
     return length(max(delta, 0.0)) + min(max(delta.x, delta.y), 0.0) - radius;
 }
- 
+
 void main() {
     vec2 local_position = fragment_position - fragment_center;
     float dist = rounded_box_sdf(local_position, fragment_half_size, fragment_corner_radius);

@@ -5,7 +5,6 @@
 #include "file.hpp"
 #include "log.hpp"
 #include "recsize.hpp"
-#include "rect.hpp"
 #include "types.hpp"
 #include <cassert>
 #define NOMINMAX
@@ -32,7 +31,7 @@ namespace ulx {
             pixmap(ulx::vec<ulx::u8> pixels, ulx::u32 width, ulx::u32 height) : texture_pixels(pixels), texture_width(width), texture_height(height), texture_size(pixels.size()) {}
     
             inline static auto from_bitmap(const ulx::file& image_file) -> pixmap {
-                ulx::str file_path = image_file.get_file_path();
+                ulx::str file_path = image_file.path();
                 ulx::i32 texture_width = 0, texture_height = 0, texture_channels = 0;
     
                 ulx::u8* data = stbi_load(file_path.c_str(), &texture_width, &texture_height, &texture_channels, STBI_rgb_alpha);
@@ -44,7 +43,7 @@ namespace ulx {
             }
     
             inline static auto from_vector(const ulx::file& image_file, ulx::u32 width, ulx::u32 height) -> pixmap {
-                ulx::str file_path = image_file.get_file_path();
+                ulx::str file_path = image_file.path();
                 NSVGimage* svg = nsvgParseFromFile(file_path.c_str(), "px", 96.0f);
                 if (!svg) ulx::log::err("failed to parse svg (nanosvg): {}", file_path);
                 NSVGrasterizer* rast = nsvgCreateRasterizer();
@@ -76,7 +75,6 @@ namespace ulx {
                 ulx::u8 red = color.red(), green = color.green(), blue = color.blue();
                 float alpha_scale = color.alpha() / 255.0f;
     
-                // Stitch text bitmaps
                 for (const __uii::font::TextLayout::GlyphPosition& glyph_position : text_layout.glyphs) {
                     const __uii::font::GlyphValue& glyph_value = __uii::font::glyph_cache.find(glyph_position.key)->second;
     
@@ -98,8 +96,10 @@ namespace ulx {
             }
     
         public:
-            auto get_size() const -> ulx::recsize { return ulx::recsize(texture_width, texture_height); }
-            auto get_pixel_size() const -> ulx::u64 { return texture_size; }
-            auto get_pixels() const -> const ulx::vec<ulx::u8> { return texture_pixels; }
+            inline constexpr auto size() const -> ulx::recsize { return ulx::recsize(texture_width, texture_height); }
+            inline constexpr auto width() const -> ulx::u32 { return texture_width; }
+            inline constexpr auto height() const -> ulx::u32 { return texture_height; }
+            inline constexpr auto pixel_size() const -> ulx::u64 { return texture_size; }
+            inline constexpr auto pixels() const -> const ulx::vec<ulx::u8> { return texture_pixels; }
     };
 }

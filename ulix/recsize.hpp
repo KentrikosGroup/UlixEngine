@@ -23,6 +23,9 @@ namespace ulx {
             inline static constexpr auto autow(ulx::f32 height) -> recsize { return recsize(-1.0f, height); }
             inline static constexpr auto autoh(ulx::f32 width) -> recsize { return recsize(width, -1.0f); }
             inline static constexpr auto autos() -> recsize { return recsize(-1.0f, -1.0f); }
+            inline static constexpr auto fullw(ulx::f32 height) -> recsize { return recsize(-2.0f, height); }
+            inline static constexpr auto fullh(ulx::f32 width) -> recsize { return recsize(width, -2.0f); }
+            inline static constexpr auto fulls() -> recsize { return recsize(-2.0f, -2.0f); }
     };
 }
 

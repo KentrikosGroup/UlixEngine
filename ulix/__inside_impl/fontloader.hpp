@@ -83,6 +83,7 @@ namespace __uii::font {
     inline static ska::flat_hash_map<ulx::str, ulx::u32> font_name_to_id;
     inline static std::vector<ulx::str> font_id_to_name;
     inline static ulx::u32 next_font_id = 0;
+    inline static ska::flat_hash_map<ulx::font, ulx::i32> font_to_max_h;
 
     struct FontData {
         ulx::bytes bytes;
@@ -113,7 +114,13 @@ namespace __uii::font {
         ulx::bytes bytes = font_file.read_bytes(); if (bytes.empty()) ulx::log::err("failed to read font file: {}", font_path);
 
         FontData data { .bytes = std::move(bytes) };
-        if (!stbtt_InitFont(&data.info, data.bytes.data(), 0))
+        int font_offset = 0;
+        if (data.bytes.size() > 4 && 
+            data.bytes[0] == 't' && data.bytes[1] == 't' && 
+            data.bytes[2] == 'c' && data.bytes[3] == 'f') {
+            font_offset = stbtt_GetFontOffsetForIndex(data.bytes.data(), 0);
+        }
+        if (!stbtt_InitFont(&data.info, data.bytes.data(), font_offset))
             ulx::log::err("failed to initialize font (stb_truetype): {}", font_path);
 
         return &font_cache.emplace(key, std::move(data)).first->second.info;
@@ -154,28 +161,59 @@ namespace __uii::font {
         return glyph_cache.emplace(glyph_key, std::move(glyph_value)).first->second;
     }
 
+    inline auto decode_utf8(const ulx::str& text, ulx::size& pos) -> ulx::u32 {
+        ulx::u8 byte = static_cast<ulx::u8>(text[pos]);
+        ulx::u32 codepoint;
+        
+        if (byte < 0x80) {
+            codepoint = byte;
+            pos += 1;
+        } else if (byte < 0xE0) {
+            codepoint = byte & 0x1F;
+            codepoint = (codepoint << 6) | (text[pos + 1] & 0x3F);
+            pos += 2;
+        } else if (byte < 0xF0) {
+            codepoint = byte & 0x0F;
+            codepoint = (codepoint << 6) | (text[pos + 1] & 0x3F);
+            codepoint = (codepoint << 6) | (text[pos + 2] & 0x3F);
+            pos += 3;
+        } else {
+            codepoint = byte & 0x07;
+            codepoint = (codepoint << 6) | (text[pos + 1] & 0x3F);
+            codepoint = (codepoint << 6) | (text[pos + 2] & 0x3F);
+            codepoint = (codepoint << 6) | (text[pos + 3] & 0x3F);
+            pos += 4;
+        }
+        
+        return codepoint;
+    }
+    
     inline static auto layout_text(const ulx::str& text, const ulx::font& font) -> const TextLayout& {
         float scale = __uii::font::get_scale(font);
         ulx::u32 font_id = get_font_id(font.get_name());
         TextLayoutKey text_layout_key { text, font_id, font.get_size() };
-
+    
         auto it = line_layout_cache.find(text_layout_key);
         if (it != line_layout_cache.end())
             return it->second;
-
+    
         TextLayout layout;
         stbtt_fontinfo* fontinfo = __uii::font::load(font);
-
-        layout.glyphs.reserve(text.size());
-
+    
+        std::vector<ulx::u32> codepoints;
+        for (ulx::size i = 0; i < text.size(); ) {
+            codepoints.push_back(decode_utf8(text, i));
+        }
+        
+        layout.glyphs.reserve(codepoints.size());
         ulx::i32 current_x = 0;
         ulx::i32 min_x = INT_MAX, max_x = INT_MIN;
         ulx::i32 min_y = INT_MAX, max_y = INT_MIN;
-
-        for (ulx::size index = 0; index < text.size(); ++index) {
-            ulx::u32 codepoint = static_cast<ulx::u32>(text[index]);
+        
+        for (ulx::size i = 0; i < codepoints.size(); ++i) {
+            ulx::u32 codepoint = codepoints[i];
             const GlyphValue& glyph = get_glyph(font, codepoint, scale);
-
+    
             TextLayout::GlyphPosition glyph_position;
             glyph_position.codepoint = codepoint;
             glyph_position.x = current_x + glyph.xoff;
@@ -183,30 +221,83 @@ namespace __uii::font {
             glyph_position.width = glyph.width;
             glyph_position.height = glyph.height;
             glyph_position.key = GlyphKey{ font_id, codepoint, font.get_size() };
-
+    
             min_x = std::min(min_x, glyph_position.x);
             max_x = std::max(max_x, glyph_position.x + glyph_position.width);
             min_y = std::min(min_y, glyph_position.y);
             max_y = std::max(max_y, glyph_position.y + glyph_position.height);
-
+    
             current_x += glyph.advance;
-            if (index + 1 < text.size()) {
-                ulx::u32 next = static_cast<ulx::u32>(text[index + 1]);
-                current_x += static_cast<ulx::i32>(stbtt_GetCodepointKernAdvance(fontinfo, codepoint, next) * scale);
+            if (i + 1 < codepoints.size()) {
+                current_x += static_cast<ulx::i32>(
+                    stbtt_GetCodepointKernAdvance(fontinfo, codepoint, codepoints[i + 1]) * scale
+                );
             }
-
+    
             layout.glyphs.push_back(std::move(glyph_position));
         }
-
+    
         layout.total_width = max_x - min_x;
         layout.total_height = max_y - min_y;
         layout.baseline_y = -min_y;
-
+    
         for (auto& glyph_position : layout.glyphs) {
             glyph_position.x -= min_x;
             glyph_position.y -= min_y;
         }
-
+    
         return line_layout_cache.emplace(text_layout_key, std::move(layout)).first->second;
+    }
+
+    inline static auto max_height_of(const ulx::font& font) -> ulx::i32 {
+        stbtt_fontinfo* info = load(font);
+        if (font_to_max_h.find(font) != font_to_max_h.end())
+            return font_to_max_h[font];
+        
+        float scale = get_scale(font);
+        const unsigned char* data = info->data;
+        
+        int font_offset = 0;
+        if (data[0] == 't' && data[1] == 't' && data[2] == 'c' && data[3] == 'f') {
+            font_offset = stbtt_GetFontOffsetForIndex(data, 0);
+            if (font_offset < 0) {
+                int ascent, descent, line_gap;
+                stbtt_GetFontVMetrics(info, &ascent, &descent, &line_gap);
+                return static_cast<ulx::i32>(ascent * scale * 0.82f);
+            }
+        }
+        
+        ulx::i32 max_h = 0;
+        const unsigned char* tables = data + font_offset + 12;
+        int num_tables = *(unsigned short*)(data + font_offset + 4);
+        num_tables = ((num_tables & 0xFF) << 8) | ((num_tables >> 8) & 0xFF);
+        
+        int os2_offset = -1;
+        for (int i = 0; i < num_tables; i++) {
+            const unsigned char* entry = tables + i * 16;
+            char tag[5] = {0};
+            tag[0] = entry[0]; tag[1] = entry[1]; tag[2] = entry[2]; tag[3] = entry[3];
+            
+            if (strcmp(tag, "OS/2") == 0) {
+                os2_offset = (entry[8] << 24) | (entry[9] << 16) | (entry[10] << 8) | entry[11];
+                break;
+            }
+        }
+        
+        if (os2_offset < 0) {
+            int ascent, descent, line_gap;
+            stbtt_GetFontVMetrics(info, &ascent, &descent, &line_gap);
+            max_h = static_cast<ulx::i32>(ascent * scale * 0.78f);
+        }
+        
+        const unsigned char* os2_data = data + font_offset + os2_offset;
+        ulx::u16 cap_height = *(ulx::u16*)(os2_data + 86);
+        
+        ulx::u16 cap = *(ulx::u16*)(os2_data + 88);
+        cap = (cap >> 8) | (cap << 8);
+        
+        max_h = static_cast<ulx::i32>(cap * scale);
+        font_to_max_h[font] = max_h;
+        return max_h;
     }
 }

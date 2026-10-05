@@ -6,14 +6,14 @@
 #include "../file.hpp"
 #include "../font.hpp"
 #include "../pixmap.hpp"
-#include "../rect.hpp"
 #include "../appinfo.hpp"
 #include "../renderinfo.hpp"
 #include "../wininfo.hpp"
 #include "../__inside_impl/vulkan_classes.hpp"
 #include "../__inside_impl/vulkan_shader_data_classes.hpp"
 #include "../scene.hpp"
-#include "../timer.hpp"
+#include "../cursor.hpp"
+#include "vulkan/vulkan_core.h"
 
 
 template<> struct std::hash<std::pair<ulx::file, ulx::recsize>> {
@@ -35,19 +35,20 @@ namespace ulx {
     class context {
         public:
             using render_callback = ulx::renderinfo::render_callback_type;
-            using ticktimer = ulx::timer<context&>;
+            using tick_callback = ulx::callback<void(context&, ulx::u64)>;
 
         private:
-            ticktimer tick_timer;
             render_callback renderer;
+            tick_callback ticker;
+            ulx::u64 tick_delay = 0;
+            std::chrono::time_point<std::chrono::steady_clock> last_time;
             ulx::scene current_render_scene;
             ulx::vec<__uii::vsdces::vertex2d> render_vertices;
             ulx::vec<ulx::u32> render_indices;
             __uii::vsdces::PushConstant push_constant;
             ulx::color current_background_color;
-            bool render_dirty = false;
-            bool data_dirty = false;
-            bool first_frame = true;
+            bool first_frame = true, first_render = true;
+            ulx::cursor cursor = ulx::cursor::resetcur;
 
             ska::flat_hash_map<ulx::file, ulx::u32> bitmap_texture_cache;
             ska::flat_hash_map<ulx::pair<ulx::file, ulx::recsize>, ulx::u32> vector_texture_cache;
@@ -55,11 +56,7 @@ namespace ulx {
 
             auto update_push_constant() -> void;
             auto update_scene_objects() -> void;
-            auto push_objects(const ulx::vec<ulx::object>& objects, ulx::u32& render_index, ulx::f32 window_height, const ulx::recsize& parent_size, const ulx::recpos& parent_pos, ulx::layout parent_layout, ulx::f32& pxoff, ulx::f32& pyoff, ulx::f32 ppad, ulx::u8 alignment) -> void;
-
-        public:
-            auto set_timer(const ticktimer& timer) -> void;
-            auto dirtied(bool data_dirty = false) -> void;
+            auto push_objects(ulx::vec<ulx::object>& objects, ulx::u32& render_index, ulx::f32 window_height, const ulx::recsize& parent_size, const ulx::recpos& parent_pos, ulx::box parent_layout, ulx::f32& pxoff, ulx::f32& pyoff, ulx::f32 ppad, ulx::u8 alignment) -> void;
 
         private:
             UINT window_dpi;
@@ -70,8 +67,11 @@ namespace ulx {
             ulx::recsize window_min_size, window_max_size;
             ulx::u32 window_titlebar_height;
             bool was_maximized = false;
+            ulx::u32 titlebar_height, close_button_width, min_button_width, max_button_width;
+            bool window_max = false, window_min = false, window_restore = false;
+            HWND snap_trigger = nullptr;
 
-            auto create_window(const ulx::wininfo& window_info) -> void;
+            auto create_window(const ulx::wininfo& window_info, const ulx::appinfo& app_info) -> void;
 
         public:
             auto titled() const -> bool;
@@ -87,10 +87,20 @@ namespace ulx {
             auto height() const -> ulx::f32;
             auto x() const -> ulx::f32;
             auto y() const -> ulx::f32;
-            auto set_size(const ulx::recsize& size) -> void;
-            auto set_pos(const ulx::recpos& pos) -> void;
+            auto resize(const ulx::recsize& size) -> void;
+            auto mov(const ulx::recpos& pos) -> void;
             auto set_min(const ulx::recsize& size) -> void;
             auto set_max(const ulx::recsize& size) -> void;
+            auto set_tick(const tick_callback& callback) -> void;
+            auto set_delay(ulx::u64 delay) -> void;
+            auto set_cur(ulx::cursor cursor) -> void;
+            auto cur_pos() const -> ulx::recpos;
+            auto cur_pos_global() const -> ulx::recpos;
+            auto pressing() const -> bool;
+            auto max() -> void;
+            auto min() -> void;
+            auto restore() -> void;
+            auto is_maxed() const -> bool;
 
         private:
             VkInstance vulkan_instance;
@@ -116,9 +126,9 @@ namespace ulx {
             ulx::vec<VkFence> in_flight_fences;
             ulx::size max_frames_in_flight;
             ulx::u32 current_frame = 0;
-            __uii::vkclses::Buffer staging_buffer;
-            __uii::vkclses::Buffer vertex_buffer;
-            __uii::vkclses::Buffer index_buffer;
+            __uii::vkclses::buffer texture_buffer;
+            __uii::vkclses::buffer vertex_buffer;
+            __uii::vkclses::buffer index_buffer;
             VkDescriptorSetLayout descriptor_set_layout;
             ulx::vec<ulx::pixmap> texture_image_pixmaps;
             VkDescriptorPool descriptor_pool;
@@ -130,14 +140,16 @@ namespace ulx {
             ulx::u32 max_texture_count;
             ulx::str application_id;
             ulx::u32 application_version;
-            ulx::u64 staging_buffer_size;
+            ulx::u64 last_texture_buffer_size;
             bool push_texture_images_to_gpu = false;
             VkDescriptorUpdateTemplate descriptor_update_template = VK_NULL_HANDLE;
+            VkDeviceSize last_vertex_buffer_size = 0, last_index_buffer_size = 0;
+            ulx::present_mode pmode;
 
             auto create_vulkan_objects(const ulx::appinfo& application_info, const ulx::renderinfo& render_info) -> void;
             auto destroy_vulkan_objects() -> void;
             auto record_command_buffer(VkCommandBuffer command_buffer, ulx::u32 image_index) -> void;
-            auto draw_frame() -> void;
+            auto render() -> void;
             auto create_vulkan_instance() -> void;
             auto check_validation_layer_support() -> bool;
             auto create_debug_messenger() -> void;
@@ -159,7 +171,7 @@ namespace ulx {
             auto create_command_pool() -> void;
             auto create_command_buffers() -> void;
             auto create_sync_objects() -> void;
-            auto create_staging_buffer() -> void;
+            auto create_texture_buffer() -> void;
             auto create_vertex_buffer() -> void;
             auto create_index_buffer() -> void;
             auto update_object_buffers() -> void;
@@ -170,29 +182,30 @@ namespace ulx {
             auto create_texture_image(ulx::size index) -> VkMemoryRequirements;
             auto create_texture_image_views() -> void;
             auto create_texture_image_sampler() -> void;
-            auto push_texture_image_cpu(const ulx::pixmap& pixmap) -> void;
-            auto push_texture_images_gpu() -> void;
-            auto recreate_staging_buffer() -> void;
+            auto push_texture_image(const ulx::pixmap& pixmap) -> void;
+            auto push_texture_images() -> void;
+            auto recreate_texture_buffer() -> void;
             auto create_texture_images() -> VkDeviceSize;
             auto update_texture_images(ulx::recsize& siz, const ulx::object& object, ulx::u32& texture_index) -> void;
             auto push_object(const ulx::object& object, const ulx::recsize& siz, const ulx::recpos& pos, ulx::u32& render_index, ulx::f32 window_height, ulx::u32 texture_index) -> void;
             auto create_descriptor_update_template() -> void;
             auto update_texture_descriptors() -> void;
-            auto set_layout(ulx::recsize& siz, ulx::recpos& pos, const ulx::recsize& parent_size, const ulx::recpos& parent_pos, ulx::layout parent_layout, ulx::f32& pxoff, ulx::f32& pyoff, ulx::f32 ppad, ulx::u8 alignment) -> void;
+            auto set_layout(ulx::recsize& siz, ulx::recpos& pos, const ulx::recsize& parent_size, const ulx::recpos& parent_pos, ulx::box parent_layout, ulx::f32& parent_x_offset, ulx::f32& parent_y_offset, ulx::f32 parent_padding, ulx::u8 align) -> void;
+            auto event_valid(ulx::object::pressed_event pressed_event, ulx::object::released_event released_event, ulx::object::hovered_event hovered_event) -> bool;
 
         private:
-            static auto WINAPI window_process(HWND hwnd, UINT message, WPARAM wparam, LPARAM lparam) -> LRESULT;
+            static auto WINAPI win32_process(HWND hwnd, UINT message, WPARAM wparam, LPARAM lparam) -> LRESULT;
             static VKAPI_ATTR auto VKAPI_CALL debug_callback(VkDebugUtilsMessageSeverityFlagBitsEXT message_severity, [[maybe_unused]] VkDebugUtilsMessageTypeFlagsEXT message_type, const VkDebugUtilsMessengerCallbackDataEXT* callback_data, [[maybe_unused]] auto* user_data) -> VkBool32;
+            static auto CALLBACK snap_trigger_process(HWND hwnd, UINT message, WPARAM wparam, LPARAM lparam) -> LRESULT;
 
         public:
-            constexpr context() = default;
+            inline constexpr context() = default;
+            ~context();
 
             template<typename AI, typename WI, typename RI>
                 requires ulx::expect<AI, ulx::appinfo> &&
                          ulx::expect<WI, ulx::wininfo> &&
                          ulx::expect<RI, ulx::renderinfo>
             constexpr context(AI&& application_info, WI&& window_info, RI&& render_info);
-
-            ~context();
     };
 }

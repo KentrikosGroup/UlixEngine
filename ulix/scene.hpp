@@ -2,7 +2,6 @@
 
 #include "requires.hpp"
 #include "screen.hpp"
-#include "rect.hpp"
 #include "types.hpp"
 #include "color.hpp"
 #include "object.hpp"
@@ -15,7 +14,7 @@ namespace ulx {
             ulx::color background_color;
             ulx::u8 alignment = ulx::alignleft | ulx::aligntop;
             ulx::u32 paddin = 5;
-            ulx::layout layout_ = ulx::layout::nonebox;
+            ulx::box bx = ulx::box::nonebox;
     
         public:
             scene() = default;
@@ -29,7 +28,7 @@ namespace ulx {
                 return *this;
             }
     
-            inline auto background(const ulx::color& color) -> scene& {
+            inline auto back(const ulx::color& color) -> scene& {
                 background_color = color;
                 return *this;
             }
@@ -39,21 +38,27 @@ namespace ulx {
                 return *this;
             }
     
-            inline auto padding(ulx::u32 padding) -> scene& {
+            inline auto pad(ulx::u32 padding) -> scene& {
                 paddin = padding;
                 return *this;
             }
     
-            inline auto layout(ulx::layout objlayout) -> scene& {
-                this->layout_ = objlayout;
+            inline auto box(ulx::box objlayout) -> scene& {
+                this->bx = objlayout;
+                return *this;
+            }
+
+            inline auto layout(const layoutbox& layout) -> scene& {
+                bx = layout.box;
+                paddin = layout.padding;
                 return *this;
             }
     
         public:
-            inline auto get_objects() const -> const ulx::vec<object>& { return objects; }
+            inline auto get_objects() -> ulx::vec<object>& { return objects; }
             inline auto get_background_color() const -> const ulx::color& { return background_color; }
             inline auto get_alignment() const -> ulx::u8 { return alignment; }
             inline auto get_padding() const -> ulx::u32 { return paddin; }
-            inline auto get_layout() const -> ulx::layout { return layout_; }
+            inline auto get_layout() const -> ulx::box { return bx; }
     };
 }

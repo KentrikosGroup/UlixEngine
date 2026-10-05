@@ -5,6 +5,7 @@
 #include "../scene.hpp"
 #include "../types.hpp"
 #include "../log.hpp"
+#include "../present_mode.hpp"
 #define NOMINMAX
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
@@ -48,6 +49,21 @@ namespace __uii::vkclses {
             }
         }
 
+        inline auto select_present_mode(ulx::present_mode pmode) -> VkPresentModeKHR {
+            switch (pmode) {
+                case ulx::present_mode::immediatemode:
+                    return VK_PRESENT_MODE_IMMEDIATE_KHR;
+                case ulx::present_mode::prefer_mailmode:
+                    for (const auto& mode : present_modes) {
+                        if (mode == VK_PRESENT_MODE_MAILBOX_KHR) {
+                            return mode;
+                        }
+                    } return VK_PRESENT_MODE_FIFO_KHR;
+                case ulx::present_mode::fifomode:
+                    return VK_PRESENT_MODE_FIFO_KHR;
+            }
+        }
+
         inline auto is_adequate() -> bool {
             return !surface_formats.empty() &&
                     !present_modes.empty();
@@ -77,6 +93,21 @@ namespace __uii::vkclses {
                 actual_extent.height = std::clamp(actual_extent.height, surface_capabilities.minImageExtent.height, surface_capabilities.maxImageExtent.height);
 
                 return actual_extent;
+            }
+        }
+
+        inline auto select_present_mode(ulx::present_mode pmode, const std::vector<VkPresentModeKHR>& available_present_modes) -> VkPresentModeKHR {
+            switch (pmode) {
+                case ulx::present_mode::immediatemode:
+                    return VK_PRESENT_MODE_IMMEDIATE_KHR;
+                case ulx::present_mode::prefer_mailmode:
+                    for (const auto& mode : available_present_modes) {
+                        if (mode == VK_PRESENT_MODE_MAILBOX_KHR) {
+                            return mode;
+                        }
+                    } return VK_PRESENT_MODE_FIFO_KHR;
+                case ulx::present_mode::fifomode:
+                    return VK_PRESENT_MODE_FIFO_KHR;
             }
         }
     };
@@ -165,23 +196,23 @@ namespace __uii::vkclses {
         }
     };
 
-    struct Buffer {
-        VkBuffer buffer;
+    struct buffer {
+        VkBuffer buf = VK_NULL_HANDLE;
         VkDeviceMemory buffer_memory;
         VkDeviceSize memory_size;
 
-        Buffer() = default;
-        Buffer(VkPhysicalDevice physical_device, VkDevice logical_device, VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties): memory_size(size) {
+        buffer() = default;
+        buffer(VkPhysicalDevice physical_device, VkDevice logical_device, VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties): memory_size(size) {
             VkBufferCreateInfo buffer_create_info{};
             buffer_create_info.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
             buffer_create_info.size = size;
             buffer_create_info.usage = usage;
             buffer_create_info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-            if (vkCreateBuffer(logical_device, &buffer_create_info, nullptr, &buffer) != VK_SUCCESS)
+            if (vkCreateBuffer(logical_device, &buffer_create_info, nullptr, &buf) != VK_SUCCESS)
                 ulx::log::err("Failed to create buffer");
 
             VkMemoryRequirements buffer_memory_requirements;
-            vkGetBufferMemoryRequirements(logical_device, buffer, &buffer_memory_requirements);
+            vkGetBufferMemoryRequirements(logical_device, buf, &buffer_memory_requirements);
 
             VkMemoryAllocateInfo buffer_memory_allocate_info{};
             buffer_memory_allocate_info.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
@@ -190,18 +221,18 @@ namespace __uii::vkclses {
             if (vkAllocateMemory(logical_device, &buffer_memory_allocate_info, nullptr, &buffer_memory) != VK_SUCCESS)
                 ulx::log::err("Failed to allocate buffer memory");
 
-            if (vkBindBufferMemory(logical_device, buffer, buffer_memory, 0) != VK_SUCCESS)
+            if (vkBindBufferMemory(logical_device, buf, buffer_memory, 0) != VK_SUCCESS)
                 ulx::log::err("Failed to bind buffer memory");
         }
 
-        inline auto map_memory(VkDevice device, const void* data, VkDeviceSize size) -> void {
+        inline constexpr auto map_memory(VkDevice device, const void* data, VkDeviceSize size) -> void {
             void* dst_data;
             vkMapMemory(device, buffer_memory, 0, size, 0, &dst_data);
                 memcpy(dst_data, data, static_cast<ulx::size>(size));
             vkUnmapMemory(device, buffer_memory);
         }
 
-        inline auto copy_buffer_to(const Buffer& buffer, VkDevice device, VkCommandPool command_pool, VkQueue graphics_queue, VkDeviceSize size) -> void {
+        inline constexpr auto copy_buffer_to(const buffer& buffer, VkDevice device, VkCommandPool command_pool, VkQueue graphics_queue, VkDeviceSize size) -> void {
             VkCommandBufferAllocateInfo command_buffer_allocate_info{};
             command_buffer_allocate_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
             command_buffer_allocate_info.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
@@ -220,7 +251,7 @@ namespace __uii::vkclses {
             buffer_copy_region.srcOffset = 0;
             buffer_copy_region.dstOffset = 0;
             buffer_copy_region.size = size;
-            vkCmdCopyBuffer(command_buffer, this->buffer, buffer.buffer, 1, &buffer_copy_region);
+            vkCmdCopyBuffer(command_buffer, this->buf, buffer.buf, 1, &buffer_copy_region);
             vkEndCommandBuffer(command_buffer);
 
             VkSubmitInfo submit_info{};
@@ -233,8 +264,8 @@ namespace __uii::vkclses {
             vkFreeCommandBuffers(device, command_pool, 1, &command_buffer);
         }
 
-        inline auto release(VkDevice device) -> void {
-            vkDestroyBuffer(device, buffer, nullptr);
+        inline constexpr auto release(VkDevice device) -> void {
+            vkDestroyBuffer(device, buf, nullptr);
             vkFreeMemory(device, buffer_memory, nullptr);
         }
 
@@ -249,6 +280,10 @@ namespace __uii::vkclses {
             }
 
             ulx::log::err("Failed to find suitable memory type");
+        }
+
+        inline constexpr auto valid() const -> bool {
+            return buf != VK_NULL_HANDLE;
         }
     };
 

@@ -22,12 +22,12 @@ namespace ulx {
     using str = std::string;
     using strvw = std::string_view;
     using wstr = std::wstring;
-    using bytes = std::vector<u8>;
     template<typename T> using vec = std::vector<T>;
     template<typename T> using set = std::set<T>;
     template<typename T, ulx::size array_size> using arr = std::array<T, array_size>;
     template<typename K, typename V> using hashmap = std::unordered_map<K, V>;
     template<typename A, typename B> using pair = std::pair<A, B>;
+    using bytes = ulx::vec<u8>;
 
     #ifdef __clang__
         using i128 = __int128_t;

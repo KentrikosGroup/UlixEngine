@@ -35,18 +35,18 @@ namespace ulx {
             inline auto suffix() const -> ulx::str { return std::filesystem::path(file_path).extension().string(); }
     
         public:
-            inline auto get_file_path() const -> const ulx::str& { return file_path; }
+            inline auto path() const -> const ulx::str& { return file_path; }
     };
 }
 
 template<> struct std::hash<ulx::file> {
     size_t operator()(const ulx::file& f) const noexcept {
-        return std::hash<std::string>{}(f.get_file_path());
+        return std::hash<std::string>{}(f.path());
     }
 };
 
 template<> struct std::equal_to<ulx::file> {
     bool operator()(const ulx::file& a, const ulx::file& b) const noexcept {
-        return a.get_file_path() == b.get_file_path();
+        return a == b;
     }
 };

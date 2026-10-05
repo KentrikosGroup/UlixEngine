@@ -1,6 +1,5 @@
 #pragma once
 
-#include "rect.hpp"
 #include "recsize.hpp"
 #include "recpos.hpp"
 #include "winattr.hpp"
@@ -18,6 +17,11 @@ namespace ulx {
             ulx::recpos initial_window_pos = ulx::recpos(0, 0);
             ulx::recsize min_window_size = ulx::recsize(800, 600);
             ulx::recsize max_window_size = ulx::recsize(1200, 900);
+            ulx::f32 titlebar_height = 30;
+            
+            ulx::f32 close_button_width = 45;
+            ulx::f32 min_button_width = 45;
+            ulx::f32 max_button_width = 45;
         
         public:
             inline constexpr wininfo() = default;
@@ -32,20 +36,28 @@ namespace ulx {
                 window_title(std::forward<T>(window_title))
             {}
         
-            inline auto size(const ulx::recsize& rec) -> wininfo& { initial_window_size = rec; return *this; }
-            inline auto pos(const ulx::recpos& rec) -> wininfo& { initial_window_pos = rec; return *this; }
-            inline auto attr(ulx::u8 attrs) -> wininfo& { window_attrs |= attrs; return *this; }
-            inline auto unattr(ulx::u8 attrs) -> wininfo& { window_attrs &= ~attrs; return *this; }
-            inline auto min(const ulx::recsize& rec) -> wininfo& { min_window_size = rec; return *this; }
-            inline auto max(const ulx::recsize& rec) -> wininfo& { max_window_size = rec; return *this; }
+            inline constexpr auto size(const ulx::recsize& rec) -> wininfo& { initial_window_size = rec; return *this; }
+            inline constexpr auto pos(const ulx::recpos& rec) -> wininfo& { initial_window_pos = rec; return *this; }
+            inline constexpr auto attr(ulx::u8 attrs) -> wininfo& { window_attrs |= attrs; return *this; }
+            inline constexpr auto unattr(ulx::u8 attrs) -> wininfo& { window_attrs &= ~attrs; return *this; }
+            inline constexpr auto min(const ulx::recsize& rec) -> wininfo& { min_window_size = rec; return *this; }
+            inline constexpr auto max(const ulx::recsize& rec) -> wininfo& { max_window_size = rec; return *this; }
+            inline constexpr auto vtitlebar(ulx::f32 height) -> wininfo& { titlebar_height = height; return *this; }
+            inline constexpr auto vclose(ulx::f32 width) -> wininfo& { close_button_width = width; return *this; }
+            inline constexpr auto vmin(ulx::f32 width) -> wininfo& { min_button_width = width; return *this; }
+            inline constexpr auto vmax(ulx::f32 width) -> wininfo& { max_button_width = width; return *this; }
         
         public:
-            inline auto get_window_attrs() const -> ulx::u8 { return window_attrs; }
-            inline auto get_window_class_name() const -> const ulx::str& { return window_class_name; }
-            inline auto get_window_title() const -> const ulx::str& { return window_title; }
-            inline auto get_initial_window_size() const -> const ulx::recsize& { return initial_window_size; }
-            inline auto get_initial_window_pos() const -> const ulx::recpos& { return initial_window_pos; }
-            inline auto get_min_window_size() const -> const ulx::recsize& { return min_window_size; }
-            inline auto get_max_window_size() const -> const ulx::recsize& { return max_window_size; }
+            inline constexpr auto get_window_attrs() const -> ulx::u8 { return window_attrs; }
+            inline constexpr auto get_window_class_name() const -> const ulx::str& { return window_class_name; }
+            inline constexpr auto get_window_title() const -> const ulx::str& { return window_title; }
+            inline constexpr auto get_initial_window_size() const -> const ulx::recsize& { return initial_window_size; }
+            inline constexpr auto get_initial_window_pos() const -> const ulx::recpos& { return initial_window_pos; }
+            inline constexpr auto get_min_window_size() const -> const ulx::recsize& { return min_window_size; }
+            inline constexpr auto get_max_window_size() const -> const ulx::recsize& { return max_window_size; }
+            inline constexpr auto get_titlebar_height() const -> ulx::f32 { return titlebar_height; }
+            inline constexpr auto get_close_button_width() const -> ulx::f32 { return close_button_width; }
+            inline constexpr auto get_min_button_width() const -> ulx::f32 { return min_button_width; }
+            inline constexpr auto get_max_button_width() const -> ulx::f32 { return max_button_width; }
     };
 }

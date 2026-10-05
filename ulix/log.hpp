@@ -67,7 +67,7 @@ namespace ulx::log {
     }
     
     template<typename... Args> [[noreturn]] inline constexpr void err(const char* format, Args&&... args) {
-        std::println("ulix: \x1b[91merror:\x1b[0m {}", std::vformat(format, std::make_format_args(args...)));
+        std::println("ulix: \x1b[91merror:\x1b[0m {}, maybe you can submit an issue to https://github.com/KentrikosGroup/UlixEngine.", std::vformat(format, std::make_format_args(args...)));
         std::_Exit(-1);
     }
 
@@ -78,7 +78,7 @@ namespace ulx::log {
     template<typename... Args> inline constexpr void vkexp(VkResult result, const char* format, Args&&... args) {
         if (result != VK_SUCCESS) {
             ulx::str error_code = std::format("VkResult: {} ({})", static_cast<ulx::u32>(result), vkresult_to_string(result));
-            std::println("ulix: \x1b[91merror:\x1b[0m {}, {}", std::vformat(format, std::make_format_args(args...)), error_code);
+            std::println("ulix: \x1b[91merror:\x1b[0m {}, {}, maybe you can submit an issue to https://github.com/KentrikosGroup/UlixEngine.", std::vformat(format, std::make_format_args(args...)), error_code);
             std::_Exit(-1);
         }
     }
