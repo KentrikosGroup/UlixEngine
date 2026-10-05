@@ -289,13 +289,13 @@ inline auto ulx::context::win32_process(HWND hwnd, UINT message, WPARAM wparam, 
             wc.lpfnWndProc = snap_trigger_process;
             wc.hInstance = wfn::hinstance;
             wc.lpszClassName = "SnapTriggerWindow";
-            ulx::log::expect(RegisterClassA(&wc), 
+            ulx::log::expect(RegisterClassA(&wc),
                 "context.hpp: win32_process(): RegisterClassA(): failed to register window class, error code: {}", GetLastError());
             ctx->snap_trigger = CreateWindowExA(
                 WS_EX_TRANSPARENT | WS_EX_NOACTIVATE,
                 "SnapTriggerWindow", NULL, WS_CHILD | WS_VISIBLE,
                 0, 0, 0, 0, hwnd, NULL, wfn::hinstance, NULL);
-            ulx::log::expect(ctx->snap_trigger, 
+            ulx::log::expect(ctx->snap_trigger,
                 "context.hpp: win32_process(): CreateWindowExA(): failed to create window, error code: {}", GetLastError());
 
             SetWindowLongPtrW(hwnd, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(ctx));
@@ -377,39 +377,13 @@ inline auto ulx::context::win32_process(HWND hwnd, UINT message, WPARAM wparam, 
                 return DefWindowProcW(hwnd, message, wparam, lparam);
             }
 
-            RECT rect; GetClientRect(hwnd, &rect);
-            ctx->window_current_height = rect.bottom - rect.top;
-            ctx->window_current_width = rect.right - rect.left;
+            ctx->window_current_width = LOWORD(lparam);
+            ctx->window_current_height = HIWORD(lparam);
             ctx->update_push_constant();
 
             ctx->render();
 
-            return 0;
-        } case WM_SIZING: {
-            auto* ctx = reinterpret_cast<context*>(GetWindowLongPtrW(hwnd, GWLP_USERDATA));
-            if (!ctx) return DefWindowProcW(hwnd, message, wparam, lparam);
-
-            RECT rect; GetClientRect(hwnd, &rect);
-            ctx->window_current_height = rect.bottom - rect.top;
-            ctx->window_current_width = rect.right - rect.left;
-            ctx->update_push_constant();
-
-            ctx->render();
-
-            return 0;
-        } case WM_EXITSIZEMOVE: {
-            auto* ctx = reinterpret_cast<context*>(GetWindowLongPtrW(hwnd, GWLP_USERDATA));
-            if (!ctx) return DefWindowProcW(hwnd, message, wparam, lparam);
-
-            RECT rc;
-            for (ulx::u8 i = 0; i < 2; i++) {
-                GetClientRect(hwnd, &rc);
-                SendMessageW(hwnd, WM_SIZE, SIZE_RESTORED, MAKELPARAM(rc.right - rc.left, rc.bottom - rc.top));
-                GetWindowRect(hwnd, &rc);
-                SendMessageW(hwnd, WM_SIZING, WMSZ_BOTTOMRIGHT, reinterpret_cast<LPARAM>(&rc));
-            }
-
-            return 0;
+            return 1;
         } case WM_SETCURSOR: {
             auto* ctx = reinterpret_cast<context*>(GetWindowLongPtrW(hwnd, GWLP_USERDATA));
             if (!ctx) return DefWindowProcW(hwnd, message, wparam, lparam);
@@ -1086,12 +1060,11 @@ inline auto ulx::context::destroy_swapchain() -> void {
 
 inline auto ulx::context::recreate_swapchain() -> void {
     RECT window_rect;
-    GetWindowRect(window_hwnd, &window_rect);
+    GetClientRect(window_hwnd, &window_rect);
     ulx::u32 width = window_rect.right - window_rect.left;
     ulx::u32 height = window_rect.bottom - window_rect.top;
     if (width == 0 || height == 0) return;
 
-    vkDeviceWaitIdle(logical_device);
     destroy_swapchain();
 
     create_swapchain();
@@ -1186,7 +1159,8 @@ inline auto ulx::context::record_command_buffer(VkCommandBuffer command_buffer, 
     vkCmdBindVertexBuffers(command_buffer, 0, 1, &vertex_buffer.buf, offsets);
     vkCmdBindIndexBuffer(command_buffer, index_buffer.buf, 0, VK_INDEX_TYPE_UINT32);
 
-    vkCmdBindDescriptorSets(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline_layout, 0, 1, &descriptor_set, 0, nullptr);
+    vkCmdBindDescriptorSets(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline_layout, 0, 1, &descriptor_sets[current_frame], 0, nullptr);
+
     vkCmdPushConstants(command_buffer, pipeline_layout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(__uii::vsdces::PushConstant), &push_constant);
     vkCmdDrawIndexed(command_buffer, static_cast<ulx::u32>(render_indices.size()), 1, 0, 0, 0);
 
@@ -1201,7 +1175,7 @@ inline auto ulx::context::render() -> void {
         last_time = std::chrono::steady_clock::now();
         first_render = false;
     }
-    
+
     if (window_max) { ShowWindow(window_hwnd, SW_MAXIMIZE); window_max = false; }
     if (window_min) { ShowWindow(window_hwnd, SW_MINIMIZE); window_min = false; }
     if (window_restore) { ShowWindow(window_hwnd, SW_RESTORE); window_restore = false; }
@@ -1235,7 +1209,6 @@ inline auto ulx::context::render() -> void {
     submit_info.pSignalSemaphores = &render_finished_semaphores[current_frame];
     ulx::log::vkexp(vkQueueSubmit(device_queues.graphics_queue, 1, &submit_info, in_flight_fences[current_frame]),
         "context.hpp: draw_frame(): vkQueueSubmit(): failed to submit queue");
-
 
     VkPresentInfoKHR present_info{};
     present_info.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
@@ -1289,32 +1262,32 @@ inline auto ulx::context::create_descriptor_update_template() -> void {
         "context.hpp: create_descriptor_update_template(): vkCreateDescriptorUpdateTemplate(): failed to create descriptor update template");
 }
 
-inline auto ulx::context::create_descriptor_pool() -> void {
-    VkDescriptorPoolSize descriptor_pool_size{};
-    descriptor_pool_size.type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    descriptor_pool_size.descriptorCount = max_texture_count;
+inline auto ulx::context::create_descriptor_pools() -> void {
+    descriptor_pools.resize(max_frames_in_flight);
+    descriptor_sets.resize(max_frames_in_flight);
 
-    VkDescriptorPoolCreateInfo descriptor_pool_create_info{};
-    descriptor_pool_create_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-    descriptor_pool_create_info.poolSizeCount = 1;
-    descriptor_pool_create_info.pPoolSizes = &descriptor_pool_size;
-    descriptor_pool_create_info.maxSets = 1;
-    ulx::log::vkexp(vkCreateDescriptorPool(logical_device, &descriptor_pool_create_info, nullptr, &descriptor_pool),
-        "context.hpp: create_descriptor_pool(): vkCreateDescriptorPool(): failed to create descriptor pool");
+    VkDescriptorPoolSize pool_size{};
+    pool_size.type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    pool_size.descriptorCount = max_texture_count;
 
-}
+    VkDescriptorPoolCreateInfo pool_info{};
+    pool_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+    pool_info.poolSizeCount = 1;
+    pool_info.pPoolSizes = &pool_size;
+    pool_info.maxSets = 1;
 
-inline auto ulx::context::create_descriptor_set() -> void {
-    VkDescriptorSetAllocateInfo alloc_info{};
-    alloc_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-    alloc_info.descriptorPool = descriptor_pool;
-    alloc_info.descriptorSetCount = 1;
-    alloc_info.pSetLayouts = &descriptor_set_layout;
+    for (uint32_t i = 0; i < max_frames_in_flight; ++i) {
+        ulx::log::vkexp(vkCreateDescriptorPool(logical_device, &pool_info, nullptr, &descriptor_pools[i]),
+            "context.hpp: create_descriptor_pools_and_sets(): failed to create descriptor pools");
 
-    ulx::log::vkexp(vkAllocateDescriptorSets(logical_device, &alloc_info, &descriptor_set),
-        "context.hpp: create_descriptor_set(): vkAllocateDescriptorSets(): failed to allocate descriptor sets");
-
-
+        VkDescriptorSetAllocateInfo alloc_info{};
+        alloc_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+        alloc_info.descriptorPool = descriptor_pools[i];
+        alloc_info.descriptorSetCount = 1;
+        alloc_info.pSetLayouts = &descriptor_set_layout;
+        ulx::log::vkexp(vkAllocateDescriptorSets(logical_device, &alloc_info, &descriptor_sets[i]),
+            "context.hpp: create_descriptor_pools_and_sets(): failed to allocate descriptor sets");
+    }
     update_texture_descriptors();
 }
 
@@ -1323,13 +1296,16 @@ inline auto ulx::context::update_texture_descriptors() -> void {
 
     for (ulx::size index = 0; index < max_texture_count; index++) {
         image_infos[index].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-        image_infos[index].imageView = texture_images[0].image_view;
+        image_infos[index].imageView = texture_images.empty() ? VK_NULL_HANDLE : texture_images[0].image_view;
         image_infos[index].sampler = texture_image_sampler;
     }
 
     for (ulx::size index = 0; index < texture_images.size(); index++)
         image_infos[index].imageView = texture_images[index].image_view;
-    vkUpdateDescriptorSetWithTemplate(logical_device, descriptor_set, descriptor_update_template, image_infos.data());
+
+    for (uint32_t index = 0; index < max_frames_in_flight; index++) {
+        vkUpdateDescriptorSetWithTemplate(logical_device, descriptor_sets[index], descriptor_update_template, image_infos.data());
+    }
 }
 
 inline auto ulx::context::map_texture_images() -> void {
@@ -1359,8 +1335,6 @@ inline auto ulx::context::map_texture_images() -> void {
     ulx::log::vkexp(vkAllocateMemory(logical_device, &memory_allocate_info, nullptr, &texture_image_memory),
         "context.hpp: map_texture_images(): vkAllocateMemory(): failed to allocate texture image memory");
 
-
-
     for (ulx::size index = 0; index < texture_image_pixmaps.size(); index++)
         vkBindImageMemory(logical_device, texture_images[index].image, texture_image_memory, offsets[index]);
 
@@ -1372,7 +1346,7 @@ inline auto ulx::context::map_texture_images() -> void {
         ulx::pixmap pixmap = texture_image_pixmaps[index];
         ulx::recsize size = pixmap.size();
 
-        memcpy((char*)mapped + staging_offset, pixmap.pixels().data(), pixmap.pixel_size());
+        memcpy(reinterpret_cast<char*>(mapped) + staging_offset, pixmap.pixels().data(), pixmap.pixel_size());
         offsets[index] = staging_offset;
         staging_offset += pixmap.pixel_size();
 
@@ -1405,7 +1379,6 @@ inline auto ulx::context::create_texture_image(ulx::size index) -> VkMemoryRequi
     image_create_info.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
     ulx::log::vkexp(vkCreateImage(logical_device, &image_create_info, VK_NULL_HANDLE, &texture),
         "context.hpp: create_texture_image(): vkCreateImage(): failed to create texture image");
-
 
     VkMemoryRequirements memory_requirements;
     vkGetImageMemoryRequirements(logical_device, texture, &memory_requirements);
@@ -1447,17 +1420,40 @@ inline auto ulx::context::push_texture_image(const ulx::pixmap& pixmap) -> void 
 inline auto ulx::context::push_texture_images() -> void {
     push_texture_images_to_gpu = false;
 
-    for (auto& image : texture_images)
-        image.release(logical_device);
+    auto old_textures = std::move(texture_images);
+    auto old_memory = texture_image_memory;
+
     recreate_texture_buffer();
 
-    vkFreeMemory(logical_device, texture_image_memory, VK_NULL_HANDLE);
     map_texture_images();
     create_texture_image_views();
+    vkDestroyDescriptorPool(logical_device, descriptor_pools[current_frame], nullptr);
 
-    vkDestroyDescriptorPool(logical_device, descriptor_pool, VK_NULL_HANDLE);
-    create_descriptor_pool();
-    create_descriptor_set();
+    VkDescriptorPoolSize pool_size{};
+    pool_size.type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    pool_size.descriptorCount = max_texture_count;
+
+    VkDescriptorPoolCreateInfo pool_info{};
+    pool_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+    pool_info.poolSizeCount = 1;
+    pool_info.pPoolSizes = &pool_size;
+    pool_info.maxSets = 1;
+    ulx::log::vkexp(vkCreateDescriptorPool(logical_device, &pool_info, nullptr, &descriptor_pools[current_frame]),
+        "context.hpp: push_texture_images(): failed to create descriptor pool");
+
+    VkDescriptorSetAllocateInfo alloc_info{};
+    alloc_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+    alloc_info.descriptorPool = descriptor_pools[current_frame];
+    alloc_info.descriptorSetCount = 1;
+    alloc_info.pSetLayouts = &descriptor_set_layout;
+    ulx::log::vkexp(vkAllocateDescriptorSets(logical_device, &alloc_info, &descriptor_sets[current_frame]),
+        "context.hpp: push_texture_images(): failed to allocate descriptor set");
+
+    update_texture_descriptors();
+
+    for (auto& image : old_textures)
+        image.release(logical_device);
+    vkFreeMemory(logical_device, old_memory, nullptr);
 }
 
 inline auto ulx::context::recreate_texture_buffer() -> void {
@@ -1493,7 +1489,9 @@ inline auto ulx::context::destroy_vulkan_objects() -> void {
     for (auto& image : texture_images)
         image.release(logical_device);
     vkFreeMemory(logical_device, texture_image_memory, VK_NULL_HANDLE);
-    vkDestroyDescriptorPool(logical_device, descriptor_pool, VK_NULL_HANDLE);
+    for (uint32_t index = 0; index < max_frames_in_flight; index++)
+        vkDestroyDescriptorPool(logical_device, descriptor_pools[index], nullptr);
+
     vkDestroyDescriptorSetLayout(logical_device, descriptor_set_layout, VK_NULL_HANDLE);
     index_buffer.release(logical_device);
     vertex_buffer.release(logical_device);
@@ -1539,8 +1537,7 @@ inline auto ulx::context::create_vulkan_objects(const ulx::appinfo& application_
     map_texture_images();
     create_texture_image_views();
     create_texture_image_sampler();
-    create_descriptor_pool();
-    create_descriptor_set();
+    create_descriptor_pools();
 
     update_scene_objects();
     update_push_constant();

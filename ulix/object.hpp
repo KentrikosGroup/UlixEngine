@@ -15,6 +15,9 @@
 #include <utility>
 #include <variant>
 
+#define event_when
+#define event_else
+
 namespace ulx {
     inline static UINT window_dpi = 0;
 
@@ -204,6 +207,25 @@ namespace ulx {
                 requires ulx::expect<C, callback>
             inline constexpr auto call(C&& fn) -> object& {
                 std::forward<C>(fn)(*this);
+                return *this;
+            }
+
+            template<typename C>
+                requires ulx::expect<C, callback>
+            inline constexpr auto when(bool cond, C&& fn) -> object& {
+                if (cond)
+                    std::forward<C>(fn)(*this);
+                return *this;
+            }
+
+            template<typename C, typename CE>
+                requires ulx::expect<C, callback> &&
+                         ulx::expect<CE, callback>
+            inline constexpr auto when(bool cond, C&& fn, CE&& else_fn) -> object& {
+                if (cond)
+                    std::forward<C>(fn)(*this);
+                else
+                    std::forward<CE>(else_fn)(*this);
                 return *this;
             }
 

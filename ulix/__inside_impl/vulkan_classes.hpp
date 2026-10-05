@@ -287,14 +287,14 @@ namespace __uii::vkclses {
         }
     };
 
-    struct TextureImage {
+    struct texture_image {
         VkImage image;
         VkImageView image_view;
 
-        inline TextureImage() = default;
+        inline texture_image() = default;
         inline auto release(VkDevice device) -> void {
-            vkDestroyImage(device, image, VK_NULL_HANDLE);
             vkDestroyImageView(device, image_view, VK_NULL_HANDLE);
+            vkDestroyImage(device, image, VK_NULL_HANDLE);
             image = VK_NULL_HANDLE;
             image_view = VK_NULL_HANDLE;
         }

@@ -131,9 +131,16 @@ namespace ulx {
             __uii::vkclses::buffer index_buffer;
             VkDescriptorSetLayout descriptor_set_layout;
             ulx::vec<ulx::pixmap> texture_image_pixmaps;
-            VkDescriptorPool descriptor_pool;
-            VkDescriptorSet descriptor_set;
-            ulx::vec<__uii::vkclses::TextureImage> texture_images;
+            
+            
+            // VkDescriptorPool descriptor_pool;
+            // VkDescriptorSet descriptor_set;
+            
+            ulx::vec<VkDescriptorPool> descriptor_pools;
+            ulx::vec<VkDescriptorSet> descriptor_sets;
+            
+            
+            ulx::vec<__uii::vkclses::texture_image> texture_images;
             VkDeviceMemory texture_image_memory;
             VkSampler texture_image_sampler;
             ulx::str cache_file_path;
@@ -145,6 +152,7 @@ namespace ulx {
             VkDescriptorUpdateTemplate descriptor_update_template = VK_NULL_HANDLE;
             VkDeviceSize last_vertex_buffer_size = 0, last_index_buffer_size = 0;
             ulx::present_mode pmode;
+
 
             auto create_vulkan_objects(const ulx::appinfo& application_info, const ulx::renderinfo& render_info) -> void;
             auto destroy_vulkan_objects() -> void;
@@ -176,8 +184,7 @@ namespace ulx {
             auto create_index_buffer() -> void;
             auto update_object_buffers() -> void;
             auto create_descriptor_set_layout() -> void;
-            auto create_descriptor_pool() -> void;
-            auto create_descriptor_set() -> void;
+            auto create_descriptor_pools() -> void;
             auto map_texture_images() -> void;
             auto create_texture_image(ulx::size index) -> VkMemoryRequirements;
             auto create_texture_image_views() -> void;
