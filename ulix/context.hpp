@@ -371,16 +371,12 @@ inline auto ulx::context::win32_process(HWND hwnd, UINT message, WPARAM wparam, 
         } case WM_SIZE: {
             auto* ctx = reinterpret_cast<context*>(GetWindowLongPtrW(hwnd, GWLP_USERDATA));
             if (!ctx) return DefWindowProcW(hwnd, message, wparam, lparam);
-
             if (ctx->first_frame) {
                 ctx->first_frame = false;
                 return DefWindowProcW(hwnd, message, wparam, lparam);
             }
 
-            ctx->window_current_width = LOWORD(lparam);
-            ctx->window_current_height = HIWORD(lparam);
-            ctx->update_push_constant();
-
+            ctx->swapchain_dirty = true;
             ctx->render();
 
             return 1;
@@ -723,7 +719,8 @@ inline auto ulx::context::create_window_surface() -> void {
         "context.hpp: create_window_surface(): vkCreateWin32SurfaceKHR(): failed to create win32 window surface");
 }
 
-inline auto ulx::context::create_swapchain() -> void {
+inline auto ulx::context::create_swapchain(VkSwapchainKHR old_swapchain) -> void {
+    vkGetPhysicalDeviceSurfaceCapabilitiesKHR(physical_device, window_surface, &physical_device_infos.swapchain_support_details.surface_capabilities);
     __uii::vkclses::SwapchainSupportDetails& swapchain_support_details = physical_device_infos.swapchain_support_details;
     __uii::vkclses::OptionalQueueFamilyIndices& optional_queue_family_indices = physical_device_infos.queue_family_indices;
     VkSurfaceFormatKHR surface_format = swapchain_support_details.select_surface_format();
@@ -746,6 +743,7 @@ inline auto ulx::context::create_swapchain() -> void {
     swapchain_create_info.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
     swapchain_create_info.presentMode = swapchain_support_details.select_present_mode(pmode);
     swapchain_create_info.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
+    swapchain_create_info.oldSwapchain = old_swapchain;
     if (optional_queue_family_indices.graphics_queue_family_index != optional_queue_family_indices.present_queue_family_index) {
         swapchain_create_info.imageSharingMode = VK_SHARING_MODE_CONCURRENT;
         swapchain_create_info.queueFamilyIndexCount = 2;
@@ -756,8 +754,21 @@ inline auto ulx::context::create_swapchain() -> void {
 
     swapchain_image_format = surface_format.format;
     swapchain_extent = extent;
+    window_current_width = extent.width;
+    window_current_height = extent.height;
 
     get_swapchain_images();
+}
+
+inline auto ulx::context::create_render_finished_semaphores() -> void {
+    render_finished_semaphores.resize(swapchain_image_count);
+    
+    VkSemaphoreCreateInfo semaphore_info{};
+    semaphore_info.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
+    for (ulx::u32 index = 0; index < swapchain_image_count; index++) {
+        ulx::log::vkexp(vkCreateSemaphore(logical_device, &semaphore_info, nullptr, &render_finished_semaphores[index]),
+            "context.hpp: create_render_finished_semaphores_per_image(): failed");
+    }
 }
 
 inline auto ulx::context::get_swapchain_images() -> void {
@@ -767,13 +778,25 @@ inline auto ulx::context::get_swapchain_images() -> void {
     vkGetSwapchainImagesKHR(logical_device, swapchain, &image_count, swapchain_images.data());
 
     max_frames_in_flight = static_cast<ulx::size>(image_count);
+    swapchain_image_count = image_count;
 }
 
 inline auto ulx::context::create_swapchain_image_views() -> void {
     swapchain_image_views.resize(swapchain_images.size());
 
-    for (ulx::size index = 0; index < swapchain_images.size(); index++)
-        swapchain_image_views[index] = __uii::vkalg::create_image_view(logical_device, swapchain_images[index], swapchain_image_format);
+    VkImageViewCreateInfo image_view_create_info{};
+    image_view_create_info.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+    image_view_create_info.viewType = VK_IMAGE_VIEW_TYPE_2D;
+    image_view_create_info.format = swapchain_image_format;
+    image_view_create_info.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    image_view_create_info.subresourceRange.baseMipLevel = 0;
+    image_view_create_info.subresourceRange.levelCount = 1;
+    image_view_create_info.subresourceRange.baseArrayLayer = 0;
+    image_view_create_info.subresourceRange.layerCount = 1;
+    for (ulx::size index = 0; index < swapchain_images.size(); index++) {
+        image_view_create_info.image = swapchain_images[index];
+        ulx::log::vkexp(vkCreateImageView(logical_device, &image_view_create_info, nullptr, &swapchain_image_views[index]), "failed to create swapchain image views");
+    }
 }
 
 inline auto ulx::context::create_shader_module(unsigned char* code, unsigned int length) -> VkShaderModule {
@@ -991,20 +1014,18 @@ inline auto ulx::context::create_render_pass() -> void {
 inline auto ulx::context::create_swapchain_frame_buffers() -> void {
     swapchain_frame_buffers.resize(swapchain_images.size());
 
-    std::for_each(std::execution::par, std::views::iota(size_t{0}, swapchain_images.size()).begin(),
-                  std::views::iota(size_t{0}, swapchain_images.size()).end(), [&](ulx::size index) {
-        VkFramebufferCreateInfo frame_buffer_create_info{};
-        frame_buffer_create_info.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
-        frame_buffer_create_info.renderPass = render_pass;
-        frame_buffer_create_info.attachmentCount = 1;
+    VkFramebufferCreateInfo frame_buffer_create_info{};
+    frame_buffer_create_info.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
+    frame_buffer_create_info.renderPass = render_pass;
+    frame_buffer_create_info.attachmentCount = 1;
+    frame_buffer_create_info.width = swapchain_extent.width;
+    frame_buffer_create_info.height = swapchain_extent.height;
+    frame_buffer_create_info.layers = 1;
+    for (ulx::u32 index = 0; index < swapchain_image_count; index++) {
         frame_buffer_create_info.pAttachments = &swapchain_image_views[index];
-        frame_buffer_create_info.width = swapchain_extent.width;
-        frame_buffer_create_info.height = swapchain_extent.height;
-        frame_buffer_create_info.layers = 1;
-
         ulx::log::vkexp(vkCreateFramebuffer(logical_device, &frame_buffer_create_info, VK_NULL_HANDLE, &swapchain_frame_buffers[index]),
             "context.hpp: create_swapchain_frame_buffers(): vkCreateFramebuffer(): failed to create frame buffers");
-    });
+    }
 }
 
 inline auto ulx::context::create_command_pool() -> void {
@@ -1030,7 +1051,6 @@ inline auto ulx::context::create_command_buffers() -> void {
 
 inline auto ulx::context::create_sync_objects() -> void {
     image_available_semaphores.resize(max_frames_in_flight);
-    render_finished_semaphores.resize(max_frames_in_flight);
     in_flight_fences.resize(max_frames_in_flight);
 
     VkSemaphoreCreateInfo semaphore_create_info{};
@@ -1043,8 +1063,6 @@ inline auto ulx::context::create_sync_objects() -> void {
     for (ulx::size index = 0; index < max_frames_in_flight; index++) {
         if (vkCreateSemaphore(logical_device, &semaphore_create_info, VK_NULL_HANDLE, &image_available_semaphores[index]) != VK_SUCCESS)
             ulx::log::err("failed to create sync object: image available semaphore");
-        if (vkCreateSemaphore(logical_device, &semaphore_create_info, VK_NULL_HANDLE, &render_finished_semaphores[index]) != VK_SUCCESS)
-            ulx::log::err("failed to create sync object: render finished semaphore");
         if (vkCreateFence(logical_device, &fence_create_info, VK_NULL_HANDLE, &in_flight_fences[index]) != VK_SUCCESS)
             ulx::log::err("failed to create sync object: in flight fence");
     }
@@ -1065,11 +1083,22 @@ inline auto ulx::context::recreate_swapchain() -> void {
     ulx::u32 height = window_rect.bottom - window_rect.top;
     if (width == 0 || height == 0) return;
 
-    destroy_swapchain();
+    VkSwapchainKHR old_swapchain = swapchain;
+    ulx::vec<VkFramebuffer> old_framebuffers = std::move(swapchain_frame_buffers);
+    ulx::vec<VkImageView> old_image_views = std::move(swapchain_image_views);
+    ulx::vec<VkSemaphore> old_render_finished_semaphores = std::move(render_finished_semaphores);
 
-    create_swapchain();
+    create_swapchain(old_swapchain);
     create_swapchain_image_views();
     create_swapchain_frame_buffers();
+    create_render_finished_semaphores();
+
+    pending_framebuffers.push_back(std::move(old_framebuffers));
+    pending_image_views.push_back(std::move(old_image_views));
+    pending_swapchains.push_back(old_swapchain);
+    pending_semaphores.push_back(std::move(old_render_finished_semaphores));
+
+    swapchain_dirty = false;
 }
 
 inline auto ulx::context::create_texture_buffer() -> void {
@@ -1170,6 +1199,31 @@ inline auto ulx::context::record_command_buffer(VkCommandBuffer command_buffer, 
 }
 
 inline auto ulx::context::render() -> void {
+    if (!pending_framebuffers.empty()) {
+        bool all_signaled = true;
+        for (ulx::u32 index = 0; index < max_frames_in_flight; index++) {
+            VkResult status = vkGetFenceStatus(logical_device, in_flight_fences[index]);
+            if (status != VK_SUCCESS) {
+                all_signaled = false;
+                break;
+            }
+        } if (all_signaled) {
+            for (ulx::size jndex = 0; jndex < pending_framebuffers.size(); jndex++) {
+                for (auto& framebuffer : pending_framebuffers[jndex])
+                    vkDestroyFramebuffer(logical_device, framebuffer, nullptr);
+                for (auto& imageview : pending_image_views[jndex])
+                    vkDestroyImageView(logical_device, imageview, nullptr);
+                vkDestroySwapchainKHR(logical_device, pending_swapchains[jndex], nullptr);
+                for (auto& semaphore : pending_semaphores[jndex])
+                    vkDestroySemaphore(logical_device, semaphore, nullptr);
+            }
+            pending_framebuffers.clear();
+            pending_image_views.clear();
+            pending_swapchains.clear();
+            pending_semaphores.clear();
+        }
+    }
+
     if (GetForegroundWindow() != window_hwnd) return;
     if (first_render) {
         last_time = std::chrono::steady_clock::now();
@@ -1181,6 +1235,10 @@ inline auto ulx::context::render() -> void {
     if (window_restore) { ShowWindow(window_hwnd, SW_RESTORE); window_restore = false; }
 
     vkWaitForFences(logical_device, 1, &in_flight_fences[current_frame], VK_TRUE, UINT64_MAX);
+    if (swapchain_dirty) {
+        recreate_swapchain();
+        update_push_constant();
+    }
 
     update_scene_objects();
     update_object_buffers();
@@ -1197,7 +1255,7 @@ inline auto ulx::context::render() -> void {
     vkResetCommandBuffer(command_buffers[current_frame], 0);
     record_command_buffer(command_buffers[current_frame], image_index);
 
-    constexpr VkPipelineStageFlags wait_stages[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
+    constexpr VkPipelineStageFlags wait_stages[] = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
     VkSubmitInfo submit_info{};
     submit_info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
     submit_info.waitSemaphoreCount = 1;
@@ -1206,14 +1264,14 @@ inline auto ulx::context::render() -> void {
     submit_info.commandBufferCount = 1;
     submit_info.pCommandBuffers = &command_buffers[current_frame];
     submit_info.signalSemaphoreCount = 1;
-    submit_info.pSignalSemaphores = &render_finished_semaphores[current_frame];
+    submit_info.pSignalSemaphores = &render_finished_semaphores[image_index];
     ulx::log::vkexp(vkQueueSubmit(device_queues.graphics_queue, 1, &submit_info, in_flight_fences[current_frame]),
         "context.hpp: draw_frame(): vkQueueSubmit(): failed to submit queue");
 
     VkPresentInfoKHR present_info{};
     present_info.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
     present_info.waitSemaphoreCount = 1;
-    present_info.pWaitSemaphores = &render_finished_semaphores[current_frame];
+    present_info.pWaitSemaphores = &render_finished_semaphores[image_index];
     present_info.swapchainCount = 1;
     present_info.pSwapchains = &swapchain;
     present_info.pImageIndices = &image_index;
@@ -1496,9 +1554,10 @@ inline auto ulx::context::destroy_vulkan_objects() -> void {
     index_buffer.release(logical_device);
     vertex_buffer.release(logical_device);
     texture_buffer.release(logical_device);
+    for (ulx::u32 i = 0; i < render_finished_semaphores.size(); i++)
+        vkDestroySemaphore(logical_device, render_finished_semaphores[i], nullptr);
     for (ulx::size index = 0; index < max_frames_in_flight; index++) {
         vkDestroySemaphore(logical_device, image_available_semaphores[index], VK_NULL_HANDLE);
-        vkDestroySemaphore(logical_device, render_finished_semaphores[index], VK_NULL_HANDLE);
         vkDestroyFence(logical_device, in_flight_fences[index], VK_NULL_HANDLE);
     }
     vkDestroyCommandPool(logical_device, command_pool, VK_NULL_HANDLE);
@@ -1538,6 +1597,7 @@ inline auto ulx::context::create_vulkan_objects(const ulx::appinfo& application_
     create_texture_image_views();
     create_texture_image_sampler();
     create_descriptor_pools();
+    create_render_finished_semaphores();
 
     update_scene_objects();
     update_push_constant();

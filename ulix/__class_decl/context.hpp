@@ -14,6 +14,7 @@
 #include "../scene.hpp"
 #include "../cursor.hpp"
 #include "vulkan/vulkan_core.h"
+#include <future>
 
 
 template<> struct std::hash<std::pair<ulx::file, ulx::recsize>> {
@@ -47,7 +48,7 @@ namespace ulx {
             ulx::vec<ulx::u32> render_indices;
             __uii::vsdces::PushConstant push_constant;
             ulx::color current_background_color;
-            bool first_frame = true, first_render = true;
+            bool first_render = true, first_frame = true, swapchain_dirty = false;
             ulx::cursor cursor = ulx::cursor::resetcur;
 
             ska::flat_hash_map<ulx::file, ulx::u32> bitmap_texture_cache;
@@ -122,7 +123,6 @@ namespace ulx {
             VkCommandPool command_pool;
             ulx::vec<VkCommandBuffer> command_buffers;
             ulx::vec<VkSemaphore> image_available_semaphores;
-            ulx::vec<VkSemaphore> render_finished_semaphores;
             ulx::vec<VkFence> in_flight_fences;
             ulx::size max_frames_in_flight;
             ulx::u32 current_frame = 0;
@@ -131,15 +131,8 @@ namespace ulx {
             __uii::vkclses::buffer index_buffer;
             VkDescriptorSetLayout descriptor_set_layout;
             ulx::vec<ulx::pixmap> texture_image_pixmaps;
-            
-            
-            // VkDescriptorPool descriptor_pool;
-            // VkDescriptorSet descriptor_set;
-            
             ulx::vec<VkDescriptorPool> descriptor_pools;
             ulx::vec<VkDescriptorSet> descriptor_sets;
-            
-            
             ulx::vec<__uii::vkclses::texture_image> texture_images;
             VkDeviceMemory texture_image_memory;
             VkSampler texture_image_sampler;
@@ -152,6 +145,14 @@ namespace ulx {
             VkDescriptorUpdateTemplate descriptor_update_template = VK_NULL_HANDLE;
             VkDeviceSize last_vertex_buffer_size = 0, last_index_buffer_size = 0;
             ulx::present_mode pmode;
+            ulx::vec<ulx::vec<VkFramebuffer>> pending_framebuffers;
+            ulx::vec<ulx::vec<VkImageView>> pending_image_views;
+            ulx::vec<VkSwapchainKHR> pending_swapchains;
+            ulx::vec<VkSemaphore> render_finished_semaphores;
+            ulx::vec<ulx::vec<VkSemaphore>> pending_semaphores;
+            ulx::u32 swapchain_image_count;
+            // std::atomic<bool> destroy_in_progress{false};
+            // std::vector<std::future<void>> destroy_futures;
 
 
             auto create_vulkan_objects(const ulx::appinfo& application_info, const ulx::renderinfo& render_info) -> void;
@@ -166,7 +167,7 @@ namespace ulx {
             auto select_physical_device() -> void;
             auto create_logical_device() -> void;
             auto create_window_surface() -> void;
-            auto create_swapchain() -> void;
+            auto create_swapchain(VkSwapchainKHR old_swapchain = VK_NULL_HANDLE) -> void;
             auto destroy_swapchain() -> void;
             auto recreate_swapchain() -> void;
             auto get_swapchain_images() -> void;
@@ -199,6 +200,7 @@ namespace ulx {
             auto update_texture_descriptors() -> void;
             auto set_layout(ulx::recsize& siz, ulx::recpos& pos, const ulx::recsize& parent_size, const ulx::recpos& parent_pos, ulx::box parent_layout, ulx::f32& parent_x_offset, ulx::f32& parent_y_offset, ulx::f32 parent_padding, ulx::u8 align) -> void;
             auto event_valid(ulx::object::pressed_event pressed_event, ulx::object::released_event released_event, ulx::object::hovered_event hovered_event) -> bool;
+            auto create_render_finished_semaphores() -> void;
 
         private:
             static auto WINAPI win32_process(HWND hwnd, UINT message, WPARAM wparam, LPARAM lparam) -> LRESULT;
