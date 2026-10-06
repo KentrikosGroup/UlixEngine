@@ -14,7 +14,6 @@
 #include "../scene.hpp"
 #include "../cursor.hpp"
 #include "vulkan/vulkan_core.h"
-#include <future>
 
 
 template<> struct std::hash<std::pair<ulx::file, ulx::recsize>> {
@@ -151,8 +150,6 @@ namespace ulx {
             ulx::vec<VkSemaphore> render_finished_semaphores;
             ulx::vec<ulx::vec<VkSemaphore>> pending_semaphores;
             ulx::u32 swapchain_image_count;
-            // std::atomic<bool> destroy_in_progress{false};
-            // std::vector<std::future<void>> destroy_futures;
 
 
             auto create_vulkan_objects(const ulx::appinfo& application_info, const ulx::renderinfo& render_info) -> void;

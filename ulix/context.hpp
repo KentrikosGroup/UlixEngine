@@ -1,9 +1,7 @@
 #pragma once
 
-#include <algorithm>
 #include <chrono>
 #include <concepts>
-#include <execution>
 #include <variant>
 #include <vulkan/vulkan_core.h>
 #include "align.hpp"
@@ -38,7 +36,6 @@
 #define NOMINMAX
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
-#include <ranges>
 
 #include "__builtin_shaders/fragment_shader.inl"
 #include "__builtin_shaders/vertex_shader.inl"
