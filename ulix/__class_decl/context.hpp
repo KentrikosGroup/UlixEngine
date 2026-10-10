@@ -14,6 +14,8 @@
 #include "../scene.hpp"
 #include "../cursor.hpp"
 #include "vulkan/vulkan_core.h"
+#include <future>
+#include <queue>
 
 
 template<> struct std::hash<std::pair<ulx::file, ulx::recsize>> {
@@ -149,8 +151,8 @@ namespace ulx {
             ulx::vec<VkSwapchainKHR> pending_swapchains;
             ulx::vec<VkSemaphore> render_finished_semaphores;
             ulx::vec<ulx::vec<VkSemaphore>> pending_semaphores;
-            ulx::u32 swapchain_image_count;
-
+            ulx::u64 swapchain_image_count;
+            std::queue<std::future<void>> pending_fns;
 
             auto create_vulkan_objects(const ulx::appinfo& application_info, const ulx::renderinfo& render_info) -> void;
             auto destroy_vulkan_objects() -> void;
@@ -164,7 +166,7 @@ namespace ulx {
             auto select_physical_device() -> void;
             auto create_logical_device() -> void;
             auto create_window_surface() -> void;
-            auto create_swapchain(VkSwapchainKHR old_swapchain = VK_NULL_HANDLE) -> void;
+            auto create_swapchain(VkSwapchainKHR swapchain = VK_NULL_HANDLE) -> void;
             auto destroy_swapchain() -> void;
             auto recreate_swapchain() -> void;
             auto get_swapchain_images() -> void;

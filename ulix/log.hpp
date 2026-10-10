@@ -75,7 +75,7 @@ namespace ulx::log {
         if (!condition) err(format, std::forward<Args>(args)...);
     }
 
-    template<typename... Args> inline constexpr void vkexp(VkResult result, const char* format, Args&&... args) {
+    template<typename... Args> inline constexpr void vk(VkResult result, const char* format, Args&&... args) {
         if (result != VK_SUCCESS) {
             ulx::str error_code = std::format("VkResult: {} ({})", static_cast<ulx::u32>(result), vkresult_to_string(result));
             std::println("ulix: \x1b[91merror:\x1b[0m {}, {}, maybe you can submit an issue to https://github.com/KentrikosGroup/UlixEngine.", std::vformat(format, std::make_format_args(args...)), error_code);
@@ -93,6 +93,13 @@ namespace ulx::log {
     template<typename... Args> [[noreturn]] inline constexpr void err([[maybe_unused]] const char* format, [[maybe_unused]] Args&&... args) { std::_Exit(-1); }
     template<typename... Args> inline constexpr void expect([[maybe_unused]] bool condition, [[maybe_unused]] const char* format, [[maybe_unused]] Args&&... args) {}
     template<typename... Args> inline constexpr void warn([[maybe_unused]] const char* format, [[maybe_unused]] Args&&... args) {}
-    template<typename... Args> inline constexpr void vkexp([[maybe_unused]] VkResult result, [[maybe_unused]] const char* format, [[maybe_unused]] Args&&... args) {}
+    template<typename... Args> inline constexpr void vk([[maybe_unused]] VkResult result, [[maybe_unused]] const char* format, [[maybe_unused]] Args&&... args) {}
 }
 #endif
+
+namespace ulx {
+    template<typename... Args>
+    inline constexpr void info(const char* format, Args&&... args) {
+        std::println("ulix: \x1b[94mwarning:\x1b[0m {}", std::vformat(format, std::make_format_args(args...)));
+    }
+}

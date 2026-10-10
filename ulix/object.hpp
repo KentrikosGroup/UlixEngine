@@ -1,6 +1,7 @@
 #pragma once
 
 #include "callback.hpp"
+#include "cursor.hpp"
 #include "file.hpp"
 #include "font.hpp"
 #include "log.hpp"
@@ -72,6 +73,7 @@ namespace ulx {
             released_event released_e;
             pressed_event pressed_e;
             hovered_event hovered_e;
+            ulx::cursor curs = ulx::cursor::resetcur;
 
         public:
             inline constexpr object() = default;
@@ -229,6 +231,11 @@ namespace ulx {
                 return *this;
             }
 
+            inline constexpr auto cur(ulx::cursor cursor) -> object& {
+                curs = cursor;
+                return *this;
+            }
+
         public:
             inline constexpr auto get_background_color() const -> const ulx::color& { return background_color; }
             inline constexpr auto get_border_color() const -> const ulx::color& { return border_color; }
@@ -246,6 +253,7 @@ namespace ulx {
             inline constexpr auto get_released_event() const -> const released_event& { return released_e; }
             inline constexpr auto get_pressed_event() const -> const pressed_event& { return pressed_e; }
             inline constexpr auto get_hovered_event() const -> const hovered_event& { return hovered_e; }
+            inline constexpr auto get_cursor() const -> ulx::cursor { return curs; }
 
         public:
             inline static constexpr auto box() -> object {
