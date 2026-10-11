@@ -1,14 +1,13 @@
 #pragma once
 #include "log.hpp"
-#include "requires.hpp"
 
 namespace ulx {
-    template<typename, ulx::size = 64> class callback;
+    template<typename, u64 = 64> class callback;
 
-    template<typename Ret, typename... Args, ulx::size max_size>
-    class callback<Ret(Args...), max_size> {
+    template<typename R, typename... As, u64 max_size>
+    class callback<R(As...), max_size> {
     private:
-        using invoker_fn = Ret(*)(void*, Args...);
+        using invoker_fn = R(*)(void*, As...);
         using destroyer_fn = void(*)(void*);
         
         alignas(std::max_align_t) unsigned char buffer[max_size];
@@ -22,10 +21,10 @@ namespace ulx {
             requires (!std::is_same_v<std::decay_t<F>, callback>)
         inline constexpr callback(F&& f) {
             using decayed = std::decay_t<F>;
-            ulx::log::expect(sizeof(decayed) <= max_size, "callback.hpp: callback(): decayed: callback too large for stack storage");
+            log::expect(sizeof(decayed) <= max_size, "callback.hpp: callback(): decayed: callback too large for stack storage");
             
             new (&buffer) decayed(std::forward<F>(f));
-            invoker = [](void* buf, Args... args) -> Ret { return (*static_cast<decayed*>(buf))(std::forward<Args>(args)...); };
+            invoker = [](void* buf, As... args) -> R { return (*static_cast<decayed*>(buf))(std::forward<As>(args)...); };
             destroyer = [](void* buf) { static_cast<decayed*>(buf)->~decayed(); };
         }
 
@@ -33,10 +32,10 @@ namespace ulx {
             if (destroyer) destroyer(&buffer);
         }
 
-        template<typename... CallArgs>
-        inline constexpr auto operator()(CallArgs&&... args) const -> Ret {
-            ulx::log::expect(invoker, "callback.hpp: operator(): fn: invalid callback");
-            return invoker(const_cast<unsigned char*>(buffer), std::forward<CallArgs>(args)...);
+        template<typename... Cs>
+        inline constexpr auto operator()(Cs&&... args) const -> R {
+            log::expect(invoker, "callback.hpp: operator(): fn: invalid callback");
+            return invoker(const_cast<unsigned char*>(buffer), std::forward<Cs>(args)...);
         }
 
         inline constexpr auto valid() const -> bool {
@@ -44,27 +43,3 @@ namespace ulx {
         }
     };
 }
-
-// namespace ulx {
-//     template<typename F> class callback {
-//         private:
-//             std::decay_t<F> fn = nullptr;
-
-//         public:
-//             inline constexpr callback() = default;
-
-//             template<typename U>
-//                 requires ulx::expect<U, std::decay_t<F>>
-//             inline constexpr callback(U&& f) : fn(std::forward<U>(f)) {}
-
-//             template<typename... Args>
-//             inline constexpr auto operator()(Args&&... args) const -> decltype(auto) {
-//                 ulx::log::expect(fn, "callback.hpp: operator(): fn: invalid callback");
-//                 return fn(std::forward<Args>(args)...);
-//             }
-
-//             inline constexpr auto valid() const -> bool {
-//                 return fn != nullptr;
-//             }
-//     };
-// }

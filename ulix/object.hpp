@@ -6,13 +6,12 @@
 #include "font.hpp"
 #include "log.hpp"
 #include "box.hpp"
-#include "pixmap.hpp"
 #include "recpos.hpp"
 #include "recsize.hpp"
 #include "color.hpp"
 #include "align.hpp"
 #include "requires.hpp"
-#include "winfunc.hpp"
+#include "__inside_impl/fontloader.hpp"
 #include <utility>
 #include <variant>
 
@@ -27,7 +26,6 @@ namespace ulx {
         ulx::color border = ulx::color(255, 255, 255, 255);
         ulx::f32 corner = 16.0f;
         ulx::f32 borderw = 16.0f;
-        ulx::f32 scale = 1.0f;
     };
 
     struct geom {
@@ -68,7 +66,6 @@ namespace ulx {
             ulx::f32 paddin = 5;
             ulx::box bx = ulx::box::nonebox;
             texture_variant texturev;
-            ulx::f32 sc = 1.0f;
             ulx::strvw id_;
             released_event released_e;
             pressed_event pressed_e;
@@ -95,7 +92,6 @@ namespace ulx {
                 border_color = style.border;
                 corner_radius = style.corner;
                 border_width = style.borderw;
-                sc = style.scale;
                 return *this;
             }
 
@@ -163,11 +159,6 @@ namespace ulx {
 
             inline constexpr auto box(ulx::box bx) -> object& {
                 this->bx = bx;
-                return *this;
-            }
-
-            inline constexpr auto scale(ulx::f32 sc) -> object& {
-                this->sc = sc;
                 return *this;
             }
 
@@ -248,7 +239,6 @@ namespace ulx {
             inline constexpr auto get_alignment() const -> ulx::u8 { return alignment; }
             inline constexpr auto get_padding() const -> ulx::f32 { return paddin; }
             inline constexpr auto get_layout() const -> ulx::box { return bx; }
-            inline constexpr auto get_scale() const -> ulx::f32 { return sc; }
             inline constexpr auto get_id() const -> const ulx::strvw& { return id_; }
             inline constexpr auto get_released_event() const -> const released_event& { return released_e; }
             inline constexpr auto get_pressed_event() const -> const pressed_event& { return pressed_e; }
@@ -269,7 +259,7 @@ namespace ulx {
                     .box(ulx::horbox).size(ulx::recsize(0, max_h));
 
                 ulx::str glyph_str;
-                for (ulx::size i = 0; i < txt.size(); ) {
+                for (ulx::u64 i = 0; i < txt.size(); ) {
                     ulx::u32 cp = __uii::font::decode_utf8(txt, i);
                     glyph_str = "";
 

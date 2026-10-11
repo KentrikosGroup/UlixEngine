@@ -1,19 +1,18 @@
 #pragma once
-
 #include "color.hpp"
 #include "types.hpp"
 
 namespace ulx {
     class font {
         private:
-            ulx::str font_name;
-            ulx::u32 font_size;
-            ulx::color font_color;
+            str font_name;
+            u32 font_size;
+            color font_color;
     
         public:
             inline font(
-                const ulx::str& name = "arial.ttf", ulx::u32 size = 32,
-                ulx::color color = ulx::color(255, 255, 255)
+                const str& name = "arial.ttf", u32 size = 32,
+                color color = ulx::color(255, 255, 255)
             ):
                 font_name(name), font_size(size),
                 font_color(color)
@@ -21,38 +20,38 @@ namespace ulx {
     
             inline constexpr auto operator==(const font& other) const -> bool = default;
     
-            inline auto name(const ulx::str& name) -> font& {
+            inline auto name(const str& name) -> font& {
                 font_name = name;
                 return *this;
             }
     
-            inline auto size(ulx::u32 size) -> font& {
+            inline auto size(u32 size) -> font& {
                 font_size = size;
                 return *this;
             }
     
-            inline auto color(const ulx::color& color) -> font& {
+            inline auto color(const color& color) -> font& {
                 font_color = color;
                 return *this;
             }
     
         public:
-            inline constexpr auto get_name() const -> const ulx::str& { return font_name; }
-            inline constexpr auto get_size() const -> ulx::u32 { return font_size; }
+            inline constexpr auto get_name() const -> const str& { return font_name; }
+            inline constexpr auto get_size() const -> u32 { return font_size; }
             inline constexpr auto get_color() const -> const ulx::color& { return font_color; }
 
         public:
-            inline constexpr auto make(ulx::u32 size = 32, const ulx::color& color = ulx::color(255, 255, 255)) const -> font {
+            inline constexpr auto make(u32 size = 32, const ulx::color& color = ulx::color(255, 255, 255)) const -> font {
                 return font(font_name, size, color);
             }
 
         public:
-            inline constexpr auto set_name(const ulx::str& name) -> font& {
+            inline constexpr auto set_name(const str& name) -> font& {
                 font_name = name;
                 return *this;
             }
 
-            inline constexpr auto set_size(ulx::u32 size) -> font& {
+            inline constexpr auto set_size(u32 size) -> font& {
                 font_size = size;
                 return *this;
             }

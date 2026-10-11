@@ -18,8 +18,8 @@ namespace ulx::screen {
             ulx::log::expect(SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2), 
                 "failed to set DPI awareness, error code: {}", GetLastError());
 
-            _screen_width = wfn::logical_cast(GetSystemMetricsForDpi(SM_CXSCREEN, ulx::wfn::system_dpi));
-            _screen_height = wfn::logical_cast(GetSystemMetricsForDpi(SM_CYSCREEN, ulx::wfn::system_dpi));
+            _screen_width = wfn::logical(wfn::screen_width);
+            _screen_height = wfn::logical(wfn::screen_physical_height());
         }
     } inline static _init;
 }

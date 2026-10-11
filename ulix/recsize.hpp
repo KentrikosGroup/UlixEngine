@@ -4,28 +4,28 @@
 namespace ulx {
     class recsize {
         private:
-            ulx::f32 width_, height_;
+            f32 width_, height_;
             
         public:
             inline constexpr recsize() = default;
-            inline constexpr recsize(ulx::f32 width, ulx::f32 height): width_(width), height_(height) {}
+            inline constexpr recsize(f32 width, f32 height): width_(width), height_(height) {}
 
-            inline constexpr auto width() const -> ulx::f32 { return width_; }
-            inline constexpr auto height() const -> ulx::f32 { return height_; }
+            inline constexpr auto width() const -> f32 { return width_; }
+            inline constexpr auto height() const -> f32 { return height_; }
 
             inline constexpr auto operator==(const recsize&) const -> bool = default;
             
         public:
-            inline static constexpr auto from_ratio(ulx::f32 width, ulx::f32 ratio) -> recsize {
+            inline static constexpr auto from_ratio(f32 width, f32 ratio) -> recsize {
                 return recsize(width, width * ratio);
             }
 
-            inline static constexpr auto autow(ulx::f32 height) -> recsize { return recsize(-1.0f, height); }
-            inline static constexpr auto autoh(ulx::f32 width) -> recsize { return recsize(width, -1.0f); }
-            inline static constexpr auto autos() -> recsize { return recsize(-1.0f, -1.0f); }
-            inline static constexpr auto fullw(ulx::f32 height) -> recsize { return recsize(-2.0f, height); }
-            inline static constexpr auto fullh(ulx::f32 width) -> recsize { return recsize(width, -2.0f); }
-            inline static constexpr auto fulls() -> recsize { return recsize(-2.0f, -2.0f); }
+            inline static constexpr auto autow(f32 height) -> recsize { return {-1.0f, height}; }
+            inline static constexpr auto autoh(f32 width) -> recsize { return {width, -1.0f}; }
+            inline static constexpr auto autos() -> recsize { return {-1.0f, -1.0f}; }
+            inline static constexpr auto fullw(f32 height) -> recsize { return {-2.0f, height}; }
+            inline static constexpr auto fullh(f32 width) -> recsize { return {width, -2.0f}; }
+            inline static constexpr auto fulls() -> recsize { return {-2.0f, -2.0f}; }
     };
 }
 

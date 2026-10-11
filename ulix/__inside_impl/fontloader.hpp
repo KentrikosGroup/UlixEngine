@@ -4,79 +4,77 @@
 #include "../file.hpp"
 #include "../types.hpp"
 #include "../font.hpp"
-#include <algorithm>
 #include "../__require_libraries/skarupke/flat_hash_map.hpp"
 #include "../__require_libraries/stb_truetype/stb_truetype.hpp"
+#include <functional>
 
 namespace __uii::font {
-    struct GlyphKey {
+    struct glyph_key {
         ulx::u32 font_id;
         ulx::u32 codepoint;
         ulx::u32 size;
     };
 
-    struct GlyphValue {
+    struct glyph_value {
         ulx::i32 width, height;
-        ulx::i32 xoff, yoff;
+        ulx::i32 x_offset, y_offset;
         ulx::i32 advance;
         ulx::bytes bitmap;
     };
 
-    struct GlyphKeyHash {
-        std::size_t operator()(const GlyphKey& k) const noexcept {
-            std::size_t h = k.font_id;
-            h ^= k.codepoint << 1;
-            h ^= k.size << 2;
-            return h;
-        }
-    };
-
-    struct TextLayoutKey {
+    struct text_layout_key {
         ulx::str text;
         ulx::u32 font_id;
         ulx::u32 size;
     };
 
-    struct TextLayout {
-        struct GlyphPosition {
+    struct text_layout {
+        struct glyph_position {
             ulx::u32 codepoint;
             ulx::i32 x, y;
             ulx::i32 width, height;
-            GlyphKey key;
+            glyph_key key;
         };
 
         ulx::i32 total_width, total_height;
         ulx::i32 baseline_y;
-        std::vector<GlyphPosition> glyphs;
-    };
-
-    struct TextLayoutKeyHash {
-        std::size_t operator()(const TextLayoutKey& k) const noexcept {
-            std::size_t h = std::hash<ulx::str>{}(k.text);
-            h ^= k.font_id << 1;
-            h ^= k.size << 2;
-            return h;
-        }
+        ulx::vec<glyph_position> glyphs;
     };
 }
 
-namespace std {
-    template<> struct equal_to<__uii::font::GlyphKey> {
-        auto operator()(const __uii::font::GlyphKey& a, const __uii::font::GlyphKey& b) const -> bool {
-            return a.font_id == b.font_id &&
-                   a.codepoint == b.codepoint &&
-                   a.size == b.size;
-        }
-    };
+template<> struct std::equal_to<__uii::font::glyph_key> {
+    auto operator()(const __uii::font::glyph_key& a, const __uii::font::glyph_key& b) const -> bool {
+        return a.font_id == b.font_id &&
+                a.codepoint == b.codepoint &&
+                a.size == b.size;
+    }
+};
 
-    template<> struct equal_to<__uii::font::TextLayoutKey> {
-        auto operator()(const __uii::font::TextLayoutKey& a, const __uii::font::TextLayoutKey& b) const -> bool {
-            return a.text == b.text &&
-                   a.font_id == b.font_id &&
-                   a.size == b.size;
-        }
-    };
-}
+template<> struct std::equal_to<__uii::font::text_layout_key> {
+    auto operator()(const __uii::font::text_layout_key& a, const __uii::font::text_layout_key& b) const -> bool {
+        return a.text == b.text &&
+                a.font_id == b.font_id &&
+                a.size == b.size;
+    }
+};
+
+template<> struct std::hash<__uii::font::glyph_key> {
+    ulx::u64 operator()(const __uii::font::glyph_key& k) const noexcept {
+        ulx::u64 h = k.font_id;
+        h ^= k.codepoint << 1;
+        h ^= k.size << 2;
+        return h;
+    }
+};
+
+template<> struct std::hash<__uii::font::text_layout_key> {
+    ulx::u64 operator()(const __uii::font::text_layout_key& k) const noexcept {
+        ulx::u64 h = std::hash<ulx::str>{}(k.text);
+        h ^= k.font_id << 1;
+        h ^= k.size << 2;
+        return h;
+    }
+};
 
 
 namespace __uii::font {
@@ -85,7 +83,7 @@ namespace __uii::font {
     inline static ulx::u32 next_font_id = 0;
     inline static ska::flat_hash_map<ulx::font, ulx::i32> font_to_max_h;
 
-    struct FontData {
+    struct font_data {
         ulx::bytes bytes;
         stbtt_fontinfo info;
     };
@@ -101,7 +99,7 @@ namespace __uii::font {
         return id;
     }
 
-    inline static ska::flat_hash_map<ulx::str, FontData> font_cache;
+    inline static ska::flat_hash_map<ulx::str, font_data> font_cache;
     inline static auto load(const ulx::font& font) -> stbtt_fontinfo* {
         ulx::str key = font.get_name();
 
@@ -113,7 +111,7 @@ namespace __uii::font {
         ulx::file font_file(font_path); if (!font_file.exists()) ulx::log::err("failed to find font file: {}", font_path);
         ulx::bytes bytes = font_file.read_bytes(); if (bytes.empty()) ulx::log::err("failed to read font file: {}", font_path);
 
-        FontData data { .bytes = std::move(bytes) };
+        font_data data { .bytes = std::move(bytes) };
         int font_offset = 0;
         if (data.bytes.size() > 4 && 
             data.bytes[0] == 't' && data.bytes[1] == 't' && 
@@ -126,17 +124,17 @@ namespace __uii::font {
         return &font_cache.emplace(key, std::move(data)).first->second.info;
     }
 
-    inline static auto get_scale(const ulx::font& font) -> float {
+    inline static auto get_scale(const ulx::font& font) -> ulx::f32 {
         stbtt_fontinfo* info = load(font);
         return stbtt_ScaleForPixelHeight(info, static_cast<ulx::f32>(font.get_size()));
     }
 
-    inline static ska::flat_hash_map<GlyphKey, GlyphValue, GlyphKeyHash> glyph_cache;
-    inline static ska::flat_hash_map<TextLayoutKey, TextLayout, TextLayoutKeyHash> line_layout_cache;
+    inline static ulx::hashmap<glyph_key, glyph_value> glyph_cache;
+    inline static ulx::hashmap<text_layout_key, text_layout> line_layout_cache;
 
-    inline static auto get_glyph(const ulx::font& font, ulx::u32 codepoint, float scale) -> const GlyphValue& {
+    inline static auto get_glyph(const ulx::font& font, ulx::u32 codepoint, ulx::f32 scale) -> const glyph_value& {
         ulx::u32 font_id = get_font_id(font.get_name());
-        GlyphKey glyph_key { font_id, codepoint, font.get_size() };
+        glyph_key glyph_key { font_id, codepoint, font.get_size() };
 
         auto it = glyph_cache.find(glyph_key);
         if (it != glyph_cache.end())
@@ -149,11 +147,11 @@ namespace __uii::font {
         if (!bitmap) ulx::log::err("failed to get glyph bitmap (stb_truetype)");
 
         int advance; stbtt_GetCodepointHMetrics(fontinfo, codepoint, &advance, nullptr);
-        GlyphValue glyph_value{};
+        glyph_value glyph_value{};
         glyph_value.width = width;
         glyph_value.height = height;
-        glyph_value.xoff = x_offset;
-        glyph_value.yoff = y_offset;
+        glyph_value.x_offset = x_offset;
+        glyph_value.y_offset = y_offset;
         glyph_value.advance = static_cast<int>(advance * scale);
         glyph_value.bitmap.assign(bitmap, bitmap + width * height);
         stbtt_FreeBitmap(bitmap, nullptr);
@@ -161,7 +159,7 @@ namespace __uii::font {
         return glyph_cache.emplace(glyph_key, std::move(glyph_value)).first->second;
     }
 
-    inline auto decode_utf8(const ulx::str& text, ulx::size& pos) -> ulx::u32 {
+    inline auto decode_utf8(const ulx::str& text, ulx::u64& pos) -> ulx::u32 {
         ulx::u8 byte = static_cast<ulx::u8>(text[pos]);
         ulx::u32 codepoint;
         
@@ -188,20 +186,20 @@ namespace __uii::font {
         return codepoint;
     }
     
-    inline static auto layout_text(const ulx::str& text, const ulx::font& font) -> const TextLayout& {
-        float scale = __uii::font::get_scale(font);
+    inline static auto layout_text(const ulx::str& text, const ulx::font& font) -> const text_layout& {
+        ulx::f32 scale = __uii::font::get_scale(font);
         ulx::u32 font_id = get_font_id(font.get_name());
-        TextLayoutKey text_layout_key { text, font_id, font.get_size() };
+        text_layout_key text_layout_key { text, font_id, font.get_size() };
     
         auto it = line_layout_cache.find(text_layout_key);
         if (it != line_layout_cache.end())
             return it->second;
     
-        TextLayout layout;
+        text_layout layout;
         stbtt_fontinfo* fontinfo = __uii::font::load(font);
     
         std::vector<ulx::u32> codepoints;
-        for (ulx::size i = 0; i < text.size(); ) {
+        for (ulx::u64 i = 0; i < text.size(); ) {
             codepoints.push_back(decode_utf8(text, i));
         }
         
@@ -210,17 +208,17 @@ namespace __uii::font {
         ulx::i32 min_x = INT_MAX, max_x = INT_MIN;
         ulx::i32 min_y = INT_MAX, max_y = INT_MIN;
         
-        for (ulx::size i = 0; i < codepoints.size(); ++i) {
+        for (ulx::u64 i = 0; i < codepoints.size(); ++i) {
             ulx::u32 codepoint = codepoints[i];
-            const GlyphValue& glyph = get_glyph(font, codepoint, scale);
+            const glyph_value& glyph = get_glyph(font, codepoint, scale);
     
-            TextLayout::GlyphPosition glyph_position;
+            text_layout::glyph_position glyph_position;
             glyph_position.codepoint = codepoint;
-            glyph_position.x = current_x + glyph.xoff;
-            glyph_position.y = glyph.yoff;
+            glyph_position.x = current_x + glyph.x_offset;
+            glyph_position.y = glyph.y_offset;
             glyph_position.width = glyph.width;
             glyph_position.height = glyph.height;
-            glyph_position.key = GlyphKey{ font_id, codepoint, font.get_size() };
+            glyph_position.key = glyph_key{ font_id, codepoint, font.get_size() };
     
             min_x = std::min(min_x, glyph_position.x);
             max_x = std::max(max_x, glyph_position.x + glyph_position.width);
@@ -254,7 +252,7 @@ namespace __uii::font {
         if (font_to_max_h.find(font) != font_to_max_h.end())
             return font_to_max_h[font];
         
-        float scale = get_scale(font);
+        ulx::f32 scale = get_scale(font);
         const unsigned char* data = info->data;
         
         int font_offset = 0;

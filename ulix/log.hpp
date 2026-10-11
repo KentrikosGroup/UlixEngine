@@ -100,6 +100,6 @@ namespace ulx::log {
 namespace ulx {
     template<typename... Args>
     inline constexpr void info(const char* format, Args&&... args) {
-        std::println("ulix: \x1b[94mwarning:\x1b[0m {}", std::vformat(format, std::make_format_args(args...)));
+        std::println("ulix: \x1b[94minfo:\x1b[0m {}", std::vformat(format, std::make_format_args(args...)));
     }
 }

@@ -1,21 +1,17 @@
 #pragma once
-
-
-#include <vulkan/vulkan_core.h>
-#include "../scene.hpp"
+#define NOMINMAX
+#define WIN32_LEAN_AND_MEAN
+#define VK_USE_PLATFORM_WIN32_KHR
 #include "../types.hpp"
 #include "../log.hpp"
 #include "../present_mode.hpp"
-#define NOMINMAX
-#define WIN32_LEAN_AND_MEAN
 #include <windows.h>
-#define VK_USE_PLATFORM_WIN32_KHR
 #include <vulkan/vulkan.h>
 #include <optional>
 #include <algorithm>
 
 namespace __uii::vkclses {
-    struct OptionalQueueFamilyIndices {
+    struct queue_family_indices {
         std::optional<ulx::u32> graphics_queue_family_index;
         std::optional<ulx::u32> present_queue_family_index;
 
@@ -25,13 +21,13 @@ namespace __uii::vkclses {
         }
     };
 
-    struct SwapchainSupportDetails {
+    struct swapchain_support_details {
         VkSurfaceCapabilitiesKHR surface_capabilities;
         ulx::vec<VkSurfaceFormatKHR> surface_formats;
         ulx::vec<VkPresentModeKHR> present_modes;
 
-        SwapchainSupportDetails() = default;
-        SwapchainSupportDetails(VkPhysicalDevice device, VkSurfaceKHR window_surface) {
+        swapchain_support_details() = default;
+        swapchain_support_details(VkPhysicalDevice device, VkSurfaceKHR window_surface) {
             vkGetPhysicalDeviceSurfaceCapabilitiesKHR(device, window_surface, &surface_capabilities);
 
             ulx::u32 surface_format_count = 0;
@@ -112,16 +108,16 @@ namespace __uii::vkclses {
         }
     };
 
-    struct PhysicalDeviceInfos {
+    struct physical_device_info {
         VkPhysicalDeviceProperties properties;
         VkPhysicalDeviceMemoryProperties memory_properties;
         VkPhysicalDeviceFeatures features;
-        OptionalQueueFamilyIndices queue_family_indices;
-        SwapchainSupportDetails swapchain_support_details;
+        queue_family_indices queue_family_indices;
+        swapchain_support_details swapchain_details;
         bool extension_support;
 
-        PhysicalDeviceInfos() = default;
-        PhysicalDeviceInfos(VkPhysicalDevice device, VkSurfaceKHR surface) {
+        physical_device_info() = default;
+        physical_device_info(VkPhysicalDevice device, VkSurfaceKHR surface) {
             vkGetPhysicalDeviceProperties(device, &properties);
             vkGetPhysicalDeviceMemoryProperties(device, &memory_properties);
             vkGetPhysicalDeviceFeatures(device, &features);
@@ -132,7 +128,7 @@ namespace __uii::vkclses {
             ulx::vec<VkQueueFamilyProperties> queue_family_properties_list = ulx::vec<VkQueueFamilyProperties>(queue_family_count);
             vkGetPhysicalDeviceQueueFamilyProperties(device, &queue_family_count, queue_family_properties_list.data());
 
-            for (ulx::size i = 0; i < queue_family_count; i++) {
+            for (ulx::u64 i = 0; i < queue_family_count; i++) {
                 if (queue_family_properties_list[i].queueFlags & VK_QUEUE_GRAPHICS_BIT)
                     queue_family_indices.graphics_queue_family_index = i;
 
@@ -144,7 +140,7 @@ namespace __uii::vkclses {
 
             extension_support = check_extension_support(device);
             if (!extension_support) return;
-            swapchain_support_details = SwapchainSupportDetails(device, surface);
+            swapchain_details = swapchain_support_details(device, surface);
         }
 
         inline auto get_unique_queue_family_indices() -> ulx::set<ulx::u32> {
@@ -164,11 +160,11 @@ namespace __uii::vkclses {
             return (
                 match_gpu_type(VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU) ||
                 match_gpu_type(VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU)
-            )&& features.geometryShader && features.tessellationShader &&
-                queue_family_indices.is_complete() &&
-                extension_support &&
-                swapchain_support_details.is_adequate() &&
-                features.samplerAnisotropy;
+            ) && features.geometryShader && features.tessellationShader &&
+                 queue_family_indices.is_complete() &&
+                 extension_support &&
+                 swapchain_details.is_adequate() &&
+                 features.samplerAnisotropy;
         }
 
         inline auto check_extension_support(VkPhysicalDevice device) -> bool {
@@ -185,12 +181,12 @@ namespace __uii::vkclses {
         }
     };
 
-    struct DeviceQueues {
+    struct device_queues {
         VkQueue graphics_queue;
         VkQueue present_queue;
 
-        DeviceQueues() = default;
-        DeviceQueues(VkDevice logical_device, const PhysicalDeviceInfos& device_infos) {
+        device_queues() = default;
+        device_queues(VkDevice logical_device, const physical_device_info& device_infos) {
             vkGetDeviceQueue(logical_device, device_infos.queue_family_indices.graphics_queue_family_index.value(), 0, &graphics_queue);
             vkGetDeviceQueue(logical_device, device_infos.queue_family_indices.present_queue_family_index.value(), 0, &present_queue);
         }
@@ -228,7 +224,7 @@ namespace __uii::vkclses {
         inline constexpr auto map_memory(VkDevice device, const void* data, VkDeviceSize size) -> void {
             void* dst_data;
             vkMapMemory(device, buffer_memory, 0, size, 0, &dst_data);
-                memcpy(dst_data, data, static_cast<ulx::size>(size));
+                memcpy(dst_data, data, static_cast<ulx::u64>(size));
             vkUnmapMemory(device, buffer_memory);
         }
 

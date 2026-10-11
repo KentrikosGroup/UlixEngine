@@ -4,10 +4,10 @@
 
 namespace ulx {
     enum winattr: ulx::u8 {
-        resizable = 1 << 0,
-        titled = 1 << 1,
-        bordered = 1 << 2,
+        resizableattr = 1 << 0,
+        titledattr = 1 << 1,
+        borderedattr = 1 << 2,
     
-        normal = resizable | titled | bordered
+        normalattr = resizableattr | titledattr | borderedattr
     };
 }

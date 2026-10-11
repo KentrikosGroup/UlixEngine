@@ -5,7 +5,6 @@
 #include "../__inside_impl/vulkan_classes.hpp"
 #include "../color.hpp"
 #include "../log.hpp"
-#include "../present_mode.hpp"
 #include <filesystem>
 #include <glm/glm.hpp>
 #include <fstream>
@@ -18,7 +17,7 @@ namespace __uii::vkalg {
                          color.alpha() / 255.0f);
     }
 
-    inline auto get_device_score(const __uii::vkclses::PhysicalDeviceInfos& device_infos) -> ulx::u32 {
+    inline auto get_device_score(const __uii::vkclses::physical_device_info& device_infos) -> ulx::u32 {
         ulx::u64 device_local_bytes = 0;
         for (ulx::u32 index = 0; index < device_infos.memory_properties.memoryHeapCount; ++index) {
             if (!(device_infos.memory_properties.memoryHeaps[index].flags & VK_MEMORY_HEAP_DEVICE_LOCAL_BIT)) continue;
@@ -151,9 +150,9 @@ namespace __uii::vkalg {
         return ulx::pixmap(ulx::vec<ulx::u8>{0, 0, 0, 0}, 1, 1);
     }
 
-    /* ============================== File Algorithm ============================== */
-    inline auto read_cache(const ulx::str& file_path) -> ulx::vec<char> {
-        std::ifstream file = std::ifstream(file_path, std::ios::ate | std::ios::binary);
+    /* file ios */
+    inline auto read_cache(const ulx::pathstr& file_path) -> ulx::vec<char> {
+        std::ifstream file = std::ifstream(file_path.cstr(), std::ios::ate | std::ios::binary);
         if (!file.is_open()) ulx::log::err("Failed to read cache");
         size_t file_size = (size_t) file.tellg();
         ulx::vec<char> buffer = ulx::vec<char>(file_size);
@@ -163,15 +162,15 @@ namespace __uii::vkalg {
         return buffer;
     }
 
-    inline void write_cache(const ulx::str& file_path, const ulx::vec<char>& buffer) {
-        std::ofstream file = std::ofstream(file_path, std::ios::binary);
+    inline void write_cache(const ulx::pathstr& file_path, const ulx::vec<char>& buffer) {
+        std::ofstream file = std::ofstream(file_path.cstr(), std::ios::binary);
         if (!file.is_open()) ulx::log::err("Failed to write cache");
         file.write(buffer.data(), buffer.size());
         file.close();
     }
 
-    inline void ensure_cache_exists(const ulx::str& file_path) {
-        if (!std::filesystem::exists(file_path))
+    inline void ensure_cache_exists(const ulx::pathstr& file_path) {
+        if (!std::filesystem::exists(file_path.cstr()))
             write_cache(file_path, {});
     }
 }

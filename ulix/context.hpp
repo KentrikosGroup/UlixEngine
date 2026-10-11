@@ -1,25 +1,18 @@
 #pragma once
-
-#include <chrono>
-#include <concepts>
-#include <future>
-#include <variant>
-#include <vulkan/vulkan_core.h>
+#include "glm/ext/matrix_clip_space.hpp"
+#include "stablestr.hpp"
+#define NOMINMAX
+#define WIN32_LEAN_AND_MEAN
+#define VK_USE_PLATFORM_WIN32_KHR
 #include "align.hpp"
 #include "cursor.hpp"
 #include "file.hpp"
-#include "glm/ext/vector_float4.hpp"
 #include "box.hpp"
 #include "pixmap.hpp"
 #include "recpos.hpp"
 #include "recsize.hpp"
 #include "renderinfo.hpp"
 #include "scene.hpp"
-#include "__inside_impl/vulkan_classes.hpp"
-#include "__inside_impl/vulkan_shader_data_classes.hpp"
-#include "__inside_impl/vulkan_algorithm.hpp"
-#include "__inside_impl/vulkan_requirements.hpp"
-#include "__class_decl/context.hpp"
 #include "log.hpp"
 #include "color.hpp"
 #include "object.hpp"
@@ -27,101 +20,96 @@
 #include "appinfo.hpp"
 #include "winfunc.hpp"
 #include "types.hpp"
-#include <cstdint>
-#include <synchapi.h>
-#include <windef.h>
-#include <winuser.h>
-#define VK_USE_PLATFORM_WIN32_KHR
-#include <vulkan/vulkan.h>
-#include <wincodec.h>
-#define NOMINMAX
-#define WIN32_LEAN_AND_MEAN
-#include <windows.h>\
-
+#include "__inside_impl/vulkan_classes.hpp"
+#include "__inside_impl/vulkan_shader_data_classes.hpp"
+#include "__inside_impl/vulkan_algorithm.hpp"
+#include "__inside_impl/vulkan_requirements.hpp"
+#include "__class_decl/context.hpp"
 #include "__builtin_shaders/fragment_shader.inl"
 #include "__builtin_shaders/vertex_shader.inl"
-
+#include <vulkan/vulkan.h>
+#include <windows.h>
 
 
 inline auto ulx::context::update_push_constant() -> void {
-    push_constant.projection = glm::ortho(
-        0.0f, static_cast<ulx::f32>(window_current_width),
-        static_cast<ulx::f32>(window_current_height), 0.0f,
+    push_const.projection = glm::ortho(
+        0.0f, static_cast<ulx::f32>(window_width),
+        static_cast<ulx::f32>(window_height), 0.0f,
         -1.0f, 1.0f);
 }
 
-inline auto ulx::context::update_texture_images(ulx::recsize& siz, const ulx::object& object, ulx::u32& texture_index) -> void {
-    ulx::object::texture_variant texture_variant = object.get_texture();
+inline auto ulx::context::update_texture_images(recsize& siz, const object& object, u32& texture_index) -> void {
+    object::texture_variant texture_variant = object.get_texture();
 
     std::visit([&](auto&& arg) {
         using T = std::decay_t<decltype(arg)>;
 
         if constexpr (std::same_as<T, std::monostate>) {
             texture_index = 0;
-        } else if constexpr (std::same_as<T, ulx::file>) {
+        } else if constexpr (std::same_as<T, file>) {
             auto it = bitmap_texture_cache.find(arg);
             if (it != bitmap_texture_cache.end())
                 texture_index = it->second;
             else {
-                push_texture_image(ulx::pixmap::from_bitmap(arg));
+                push_texture_image(pixmap::from_bitmap(arg));
                 texture_index = texture_image_pixmaps.size() - 1;
                 bitmap_texture_cache[arg] = texture_index;
             }
 
-            ulx::pixmap pixmap = texture_image_pixmaps[texture_index];
-            ulx::recsize pixrec = pixmap.size();
-            if (siz.width() == -1) siz = ulx::recsize(pixrec.width(), siz.height());
-            if (siz.height() == -1) siz = ulx::recsize(siz.width(), pixrec.height());
-        } else if constexpr (std::same_as<T, ulx::pair<ulx::file, ulx::recsize>>) {
+            pixmap pixmap = texture_image_pixmaps[texture_index];
+            recsize pixrec = pixmap.size();
+            if (siz.width() == -1) siz = recsize(pixrec.width(), siz.height());
+            if (siz.height() == -1) siz = recsize(siz.width(), pixrec.height());
+        } else if constexpr (std::same_as<T, pair<file, recsize>>) {
             auto it = vector_texture_cache.find(arg);
             if (it != vector_texture_cache.end())
                 texture_index = it->second;
             else {
-                ulx::f32 width = arg.second.width();
-                ulx::f32 height = arg.second.height();
-                ulx::f32 physical_width = ulx::wfn::physical_cast(width, window_dpi);
-                ulx::f32 physical_height = ulx::wfn::physical_cast(height, window_dpi);
+                f32 width = arg.second.width();
+                f32 height = arg.second.height();
+                f32 physical_width = wfn::physical(width, window_dpi);
+                f32 physical_height = wfn::physical(height, window_dpi);
 
-                push_texture_image(ulx::pixmap::from_vector(arg.first, physical_width, physical_height));
+                push_texture_image(pixmap::from_vector(arg.first, physical_width, physical_height));
                 texture_index = texture_image_pixmaps.size() - 1;
                 vector_texture_cache[arg] = texture_index;
             }
 
-            ulx::pixmap pixmap = texture_image_pixmaps[texture_index];
-            ulx::recsize pixrec = pixmap.size();
-            if (siz.width() == -1) siz = ulx::recsize(pixrec.width() / 2, siz.height());
-            if (siz.height() == -1) siz = ulx::recsize(siz.width(), pixrec.height() / 2);
-        } else if constexpr (std::same_as<T, ulx::pair<ulx::str, ulx::font>>) {
+            pixmap pixmap = texture_image_pixmaps[texture_index];
+            recsize pixrec = pixmap.size();
+            if (siz.width() == -1) siz = recsize(pixrec.width() / 2, siz.height());
+            if (siz.height() == -1) siz = recsize(siz.width(), pixrec.height() / 2);
+        } else if constexpr (std::same_as<T, pair<str, font>>) {
             auto it = font_texture_cache.find(arg);
             if (it != font_texture_cache.end())
                 texture_index = it->second;
             else {
-                ulx::font font = arg.second;
-                font.set_size(ulx::wfn::physical_cast(font.get_size(), window_dpi));
-                push_texture_image(ulx::pixmap::from_text(arg.first, font));
+                font font = arg.second;
+                font.set_size(wfn::physical(font.get_size(), window_dpi));
+                push_texture_image(pixmap::from_text(arg.first, font));
                 texture_index = texture_image_pixmaps.size() - 1;
                 font_texture_cache[arg] = texture_index;
             }
 
-            ulx::pixmap pixmap = texture_image_pixmaps[texture_index];
-            ulx::recsize pixrec = pixmap.size();
-            ulx::font font = arg.second;
-            if (siz.width() == -1) siz = ulx::recsize(ulx::wfn::logical_cast(pixrec.width(), window_dpi), siz.height());
-            if (siz.height() == -1) siz = ulx::recsize(siz.width(), ulx::wfn::logical_cast(pixrec.height(), window_dpi));
+            pixmap pixmap = texture_image_pixmaps[texture_index];
+            recsize pixrec = pixmap.size();
+            font font = arg.second;
+            if (siz.width() == -1) siz = {wfn::logical(pixrec.width(), window_dpi), siz.height()};
+            if (siz.height() == -1) siz = {siz.width(), wfn::logical(pixrec.height(), window_dpi)};
         }
     }, texture_variant);
-    siz = ulx::recsize(siz.width() * object.get_scale(), siz.height() * object.get_scale());
+    siz = {siz.width(), siz.height()};
 }
 
-inline auto ulx::context::push_object(const ulx::object& object, const ulx::recsize& siz, const ulx::recpos& pos, ulx::u32& render_index, ulx::f32 window_height, ulx::u32 texture_index) -> void {
-    ulx::color background_color = object.get_background_color();
-    ulx::color border_color = object.get_border_color();
-    float corner_radius = ulx::wfn::physical_cast(object.get_corner_radius(), window_dpi);
-    float border_width = ulx::wfn::physical_cast(object.get_border_width(), window_dpi);
-    float x = ulx::wfn::physical_cast(pos.x(), window_dpi);
-    float y = ulx::wfn::physical_cast(pos.y(), window_dpi);
-    float width = ulx::wfn::physical_cast(siz.width(), window_dpi);
-    float height = ulx::wfn::physical_cast(siz.height(), window_dpi);
+inline auto ulx::context::push_object(const object& object, const recsize& siz, const recpos& pos, u32& render_index, u32 texture_index) -> void {
+    color background_color = object.get_background_color();
+    color border_color = object.get_border_color();
+    f32 corner_radius = wfn::physical(object.get_corner_radius(), window_dpi);
+    f32 border_width = wfn::physical(object.get_border_width(), window_dpi);
+    f32 x = wfn::physical(pos.x(), window_dpi);
+    f32 y = wfn::physical(pos.y(), window_dpi);
+    f32 width = wfn::physical(siz.width(), window_dpi);
+    f32 height = wfn::physical(siz.height(), window_dpi);
     glm::vec2 half_size = {width / 2, height / 2};
     glm::vec2 center = {x + half_size.x + 0.5f, window_height - (y + half_size.y) + 0.5f};
     glm::vec2 top_left = center - half_size;
@@ -142,129 +130,119 @@ inline auto ulx::context::push_object(const ulx::object& object, const ulx::recs
     render_index += 4;
 }
 
-inline auto ulx::context::set_layout(ulx::recsize& siz, ulx::recpos& pos, const ulx::recsize& parent_size, const ulx::recpos& parent_pos, ulx::box parent_layout, ulx::f32& parent_x_offset, ulx::f32& parent_y_offset, ulx::f32 parent_padding, ulx::u8 align) -> void {
-    if (parent_layout == ulx::nonebox) return;
-
-    if (parent_layout == ulx::horbox) {
-        if (align & ulx::align::alignleft) {
-            pos = ulx::recpos(parent_x_offset + pos.x(), pos.y());
+inline auto ulx::context::set_layout(recsize& siz, recpos& pos, const recsize& parent_size, const recpos& parent_pos, box parent_layout, f32& parent_x_offset, f32& parent_y_offset, f32 parent_padding, u8 align) -> void {
+    if (parent_layout == nonebox) return;
+    else if (parent_layout == horbox) {
+        if (align & alignleft) {
+            pos = {parent_x_offset + pos.x(), pos.y()};
             parent_x_offset += parent_padding + siz.width();
-        } else if (align & ulx::align::alignright) {
-            pos = ulx::recpos(parent_size.width() - parent_x_offset - siz.width(), pos.y());
+        } else if (align & alignright) {
+            pos = {parent_size.width() - parent_x_offset - siz.width(), pos.y()};
             parent_x_offset += parent_padding + siz.width();
         }
 
-        if (align & ulx::align::alignbottom) {
-            pos = ulx::recpos(pos.x(), parent_size.height() + pos.y() - siz.height());
+        if (align & alignbottom) {
+            pos = {pos.x(), parent_size.height() + pos.y() - siz.height()};
         }
-    }
-
-    if (parent_layout == ulx::verbox) {
-        if (align & ulx::aligntop) {
-            pos = ulx::recpos(pos.x(), parent_y_offset + pos.y());
+    } else if (parent_layout == verbox) {
+        if (align & aligntop) {
+            pos = {pos.x(), parent_y_offset + pos.y()};
             parent_y_offset += parent_padding + siz.height();
-        } else if (align & ulx::alignbottom) {
-            pos = ulx::recpos(pos.x(), parent_size.height() - parent_y_offset - siz.height());
+        } else if (align & alignbottom) {
+            pos = {pos.x(), parent_size.height() - parent_y_offset - siz.height()};
             parent_y_offset += parent_padding + siz.height();
         }
 
-        if (align & ulx::alignright) {
-            pos = ulx::recpos(parent_size.width() + pos.x() - siz.width(), pos.y());
+        if (align & alignright) {
+            pos = {parent_size.width() + pos.x() - siz.width(), pos.y()};
         }
     }
 }
 
-inline auto ulx::context::event_valid(ulx::object::pressed_event pressed_event, ulx::object::released_event released_event, ulx::object::hovered_event hovered_event) -> bool {
+inline auto ulx::context::event_valid(object::pressed_event pressed_event, object::released_event released_event, object::hovered_event hovered_event) -> bool {
     return pressed_event.valid() || released_event.valid() || hovered_event.valid();
 }
 
-inline auto ulx::context::push_objects(ulx::vec<ulx::object>& objects, ulx::u32& render_index, ulx::f32 window_height, const ulx::recsize& parent_size, const ulx::recpos& parent_pos, ulx::box parent_layout, ulx::f32& pxoff, ulx::f32& pyoff, ulx::f32 ppad, ulx::u8 alignment) -> void {
+inline auto ulx::context::push_objects(vec<object>& objects, u32& render_index, const recsize& parent_size, const recpos& parent_pos, box parent_layout, f32& x_offset, f32& y_offset, f32 parent_padding, u8 align) -> void {
     if (objects.empty()) return;
-    for (auto& object : objects) {
-        ulx::recsize siz = object.get_size();
-        ulx::recpos pos = object.get_pos();
-        ulx::u32 texture_index;
-        update_texture_images(siz, object, texture_index);
-        if (siz.width() == -2) siz = ulx::recsize(parent_size.width(), siz.height());
-        if (siz.height() == -2) siz = ulx::recsize(siz.width(), parent_size.height());
-        pos = ulx::recpos(pos.x() + parent_pos.x(), pos.y() + parent_pos.y());
-        set_layout(siz, pos, parent_size, parent_pos, parent_layout, pxoff, pyoff, ppad, alignment);
+    for (auto& obj : objects) {
+        recsize siz = obj.get_size();
+        recpos pos = obj.get_pos();
+        u32 texture_index;
+        update_texture_images(siz, obj, texture_index);
+        if (siz.width() == -2) siz = {parent_size.width(), siz.height()};
+        if (siz.height() == -2) siz = {siz.width(), parent_size.height()};
+        pos = {pos.x() + parent_pos.x(), pos.y() + parent_pos.y()};
+        set_layout(siz, pos, parent_size, parent_pos, parent_layout, x_offset, y_offset, parent_padding, align);
 
         if (siz.width() != 0 && siz.height() != 0) {
             POINT pt; GetCursorPos(&pt);
             HWND hwnd = WindowFromPoint(pt);
 
-            ulx::object::pressed_event pressed_event = object.get_pressed_event();
-            ulx::object::released_event released_event = object.get_released_event();
-            ulx::object::hovered_event hovered_event = object.get_hovered_event();
-            if (hwnd == window_hwnd || hwnd == snap_trigger) {
+            object::pressed_event pressed_event = obj.get_pressed_event();
+            object::released_event released_event = obj.get_released_event();
+            object::hovered_event hovered_event = obj.get_hovered_event();
+            if (hwnd == window_hwnd || hwnd == snap_trigger_hwnd) {
                 ScreenToClient(window_hwnd, &pt);
                 if (event_valid(pressed_event, released_event, hovered_event) &&
-                    pt.x >= ulx::wfn::physical_cast(pos.x(), window_dpi) &&
-                    pt.x <= ulx::wfn::physical_cast(pos.x() + siz.width(), window_dpi) &&
+                    pt.x >= wfn::physical(pos.x(), window_dpi) &&
+                    pt.x <= wfn::physical(pos.x() + siz.width(), window_dpi) &&
     
-                    pt.y >= ulx::wfn::physical_cast(pos.y(), window_dpi) &&
-                    pt.y <= ulx::wfn::physical_cast(pos.y() + siz.height(), window_dpi)
+                    pt.y >= wfn::physical(pos.y(), window_dpi) &&
+                    pt.y <= wfn::physical(pos.y() + siz.height(), window_dpi)
                 ) {
                     int left_mouse_state = GetAsyncKeyState(VK_LBUTTON);
                     if (left_mouse_state & 0x8000) {
-                        if (pressed_event.valid()) pressed_event(*this, object);
+                        if (pressed_event.valid()) pressed_event(*this, obj);
                     } else if (left_mouse_state & 0x0001) {
-                        if (released_event.valid()) released_event(*this, object);
+                        if (released_event.valid()) released_event(*this, obj);
                     } else {
-                        if (hovered_event.valid()) hovered_event(*this, object);
+                        if (hovered_event.valid()) hovered_event(*this, obj);
                     }
-                    cursor = object.get_cursor();
+                    curs = obj.get_cursor();
                 } else {
-                    if (released_event.valid()) released_event(*this, object);
+                    if (released_event.valid()) released_event(*this, obj);
                 }
             } else {
-                if (released_event.valid()) released_event(*this, object);
+                if (released_event.valid()) released_event(*this, obj);
             }
 
-            push_object(object, siz, pos, render_index, window_height, texture_index);
+            push_object(obj, siz, pos, render_index, texture_index);
         }
 
-        ulx::vec<ulx::object> child_objects = object.get_objects();
-        ulx::f32 x_offset = 0; ulx::f32 y_offset = 0;
-        push_objects(child_objects, render_index, window_height, siz, pos, object.get_layout(), x_offset, y_offset, object.get_padding(), object.get_alignment());
+        vec<object> child_objects = obj.get_objects();
+        f32 x_offset = 0; f32 y_offset = 0;
+        push_objects(child_objects, render_index, siz, pos, obj.get_layout(), x_offset, y_offset, obj.get_padding(), obj.get_alignment());
     }
 }
 
 inline auto ulx::context::update_scene_objects() -> void {
-    ulx::u32 render_index = 0;
+    u32 render_index = 0;
     render_vertices.clear(); render_indices.clear();
     current_render_scene = renderer(*this);
-    ulx::vec<ulx::object> objects = current_render_scene.get_objects();
+    vec<object> objects = current_render_scene.get_objects();
     current_background_color = current_render_scene.get_background_color();
 
-    cursor = ulx::cursor::resetcur;
-    ulx::f32 x_offset = 0, y_offset = 0;
-    push_objects(objects, render_index, static_cast<ulx::f32>(window_current_height),
-        ulx::recsize(ulx::wfn::logical_cast(window_current_width, window_dpi),
-                    ulx::wfn::logical_cast(window_current_height, window_dpi)),
-        ulx::recpos(0, 0), current_render_scene.get_layout(), x_offset, y_offset,
+    curs = resetcur;
+    f32 x_offset = 0, y_offset = 0;
+    push_objects(objects, render_index, 
+        {wfn::logical(window_width, window_dpi), wfn::logical(window_height, window_dpi)},
+        {0, 0}, current_render_scene.get_layout(), x_offset, y_offset,
         current_render_scene.get_padding(), current_render_scene.get_alignment()
     );
 
-    if (push_texture_images_to_gpu)
+    if (need_to_push_textures)
         push_texture_images();
 }
 
 inline auto ulx::context::set_tick(const tick_callback& callback) -> void { this->ticker = callback; }
-inline auto ulx::context::titled() const -> bool { return window_titled_state; }
-inline auto ulx::context::resizable() const -> bool { return window_resizable_state; }
 inline auto ulx::context::dpi() const -> UINT { return window_dpi; }
-inline auto ulx::context::set_delay(ulx::u64 delay) -> void { this->tick_delay = delay; }
-inline auto ulx::context::set_cur(ulx::cursor cursor) -> void { this->cursor = cursor; }
-inline auto ulx::context::cur_pos() const -> ulx::recpos {
+inline auto ulx::context::set_delay(u64 delay) -> void { this->tick_delay = delay; }
+inline auto ulx::context::set_cur(cursor c) -> void { this->curs = c; }
+inline auto ulx::context::cur_pos() const -> recpos {
     POINT pt; GetCursorPos(&pt);
     ScreenToClient(window_hwnd, &pt);
-    return ulx::recpos(ulx::wfn::logical_cast(pt.x), ulx::wfn::logical_cast(pt.y));
-}
-inline auto ulx::context::cur_pos_global() const -> ulx::recpos {
-    POINT pt; GetCursorPos(&pt);
-    return ulx::recpos(ulx::wfn::logical_cast(pt.x), ulx::wfn::logical_cast(pt.y));
+    return {wfn::logical(pt.x), wfn::logical(pt.y)};
 }
 inline auto ulx::context::pressing() const -> bool { return GetAsyncKeyState(VK_LBUTTON) & 0x8000; }
 inline auto ulx::context::max() -> void { window_max = true; }
@@ -296,11 +274,11 @@ inline auto ulx::context::win32_process(HWND hwnd, UINT message, WPARAM wparam, 
             wc.lpszClassName = "SnapTriggerWindow";
             ulx::log::expect(RegisterClassA(&wc),
                 "context.hpp: win32_process(): RegisterClassA(): failed to register window class, error code: {}", GetLastError());
-            ctx->snap_trigger = CreateWindowExA(
+            ctx->snap_trigger_hwnd = CreateWindowExA(
                 WS_EX_TRANSPARENT | WS_EX_NOACTIVATE,
                 "SnapTriggerWindow", NULL, WS_CHILD | WS_VISIBLE,
                 0, 0, 0, 0, hwnd, NULL, wfn::hinstance, NULL);
-            ulx::log::expect(ctx->snap_trigger,
+            ulx::log::expect(ctx->snap_trigger_hwnd,
                 "context.hpp: win32_process(): CreateWindowExA(): failed to create window, error code: {}", GetLastError());
 
             SetWindowLongPtrW(hwnd, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(ctx));
@@ -314,7 +292,7 @@ inline auto ulx::context::win32_process(HWND hwnd, UINT message, WPARAM wparam, 
         } case WM_NCHITTEST: {
             auto* ctx = reinterpret_cast<context*>(GetWindowLongPtrW(hwnd, GWLP_USERDATA));
             if (!ctx) return DefWindowProcW(hwnd, message, wparam, lparam);
-            if (!ctx->resizable()) return HTCLIENT;
+            if (!ctx->window_resizable) return HTCLIENT;
 
             POINT cursor_position; GetCursorPos(&cursor_position);
             RECT window_rect; GetWindowRect(hwnd, &window_rect);
@@ -322,31 +300,34 @@ inline auto ulx::context::win32_process(HWND hwnd, UINT message, WPARAM wparam, 
             POINT cursor_position_global = cursor_position;
             ScreenToClient(hwnd, &cursor_position_global);
 
-            // Max button
-            MoveWindow(ctx->snap_trigger,
-                ctx->window_current_width - ctx->close_button_width - ctx->max_button_width, 0,
-                ctx->max_button_width, ctx->titlebar_height, TRUE);
+            // move max button
+            MoveWindow(ctx->snap_trigger_hwnd,
+                ctx->window_width - ctx->vclosebtn_width - ctx->vmaxbtn_width, 0,
+                ctx->vmaxbtn_width, ctx->vtitlebar_height, TRUE);
 
-            // Top edge
+            // top edge
             if (cursor_position.y >= window_rect.top - frame && cursor_position.y < window_rect.top + frame)
                 return HTTOP;
 
-            // Topbar
-            if (!ctx->titled() && cursor_position_global.y >= 0 && cursor_position_global.y < ctx->titlebar_height) {
-                ulx::u32 window_width = window_rect.right - window_rect.left;
-                if (cursor_position_global.x >= 0 && cursor_position_global.x < window_width - ctx->close_button_width - ctx->min_button_width - ctx->max_button_width)
+            // topbar
+            if (!ctx->window_titled && cursor_position_global.y >= 0 && cursor_position_global.y < ctx->vtitlebar_height) {
+                if (cursor_position_global.x >= 0 && 
+                    cursor_position_global.x < ctx->window_width 
+                        - ctx->vclosebtn_width 
+                        - ctx->vminbtn_width 
+                        - ctx->vmaxbtn_width)
                     return HTCAPTION;
             }
 
-            return DefWindowProcW(hwnd, message, wparam, lparam); // Another edges and corner cases
+            // another edges and corner cases
+            return DefWindowProcW(hwnd, message, wparam, lparam);
         } case WM_NCCALCSIZE: {
             auto* ctx = reinterpret_cast<context*>(GetWindowLongPtrW(hwnd, GWLP_USERDATA));
-            if (!ctx || ctx->titled()) return DefWindowProcW(hwnd, message, wparam, lparam);
+            if (!ctx || ctx->window_titled) return DefWindowProcW(hwnd, message, wparam, lparam);
 
-            /* Move the top of the client area to the top of the window
-                to cover the titlebar */
+            // move titlebar out of client
             auto* params = reinterpret_cast<NCCALCSIZE_PARAMS*>(lparam);
-            params->rgrc[0].top -= ctx->window_titlebar_height;
+            params->rgrc[0].top -= ctx->window_native_titlebar_height;
 
             return DefWindowProcW(hwnd, WM_NCCALCSIZE, wparam, lparam);
         } case WM_PAINT: {
@@ -361,11 +342,9 @@ inline auto ulx::context::win32_process(HWND hwnd, UINT message, WPARAM wparam, 
             auto* ctx = reinterpret_cast<context*>(GetWindowLongPtrW(hwnd, GWLP_USERDATA));
             if (!ctx) return DefWindowProcW(hwnd, message, wparam, lparam);
 
-            ulx::recsize min_size = ctx->window_min_size;
-            ulx::recsize max_size = ctx->window_max_size;
-            min_size = ulx::recsize(ulx::wfn::logical_cast(min_size.width()), ulx::wfn::logical_cast(min_size.height()));
-            max_size = ulx::recsize(ulx::wfn::logical_cast(max_size.width()), ulx::wfn::logical_cast(max_size.height()));
-
+            recsize min_size = ctx->window_min_size;
+            recsize max_size = ctx->window_max_size;
+            
             MINMAXINFO* minmax_info = reinterpret_cast<MINMAXINFO*>(lparam);
             minmax_info->ptMinTrackSize.x = min_size.width();
             minmax_info->ptMinTrackSize.y = min_size.height();
@@ -389,24 +368,23 @@ inline auto ulx::context::win32_process(HWND hwnd, UINT message, WPARAM wparam, 
             auto* ctx = reinterpret_cast<context*>(GetWindowLongPtrW(hwnd, GWLP_USERDATA));
             if (!ctx) return DefWindowProcW(hwnd, message, wparam, lparam);
 
-            switch (ctx->cursor) {
-                case ulx::cursor::resetcur:
-                    return DefWindowProcW(hwnd, message, wparam, lparam);
-                case ulx::cursor::arrowcur: SetCursor(LoadCursor(nullptr, IDC_ARROW)); return true;
-                case ulx::cursor::handcur: SetCursor(LoadCursor(nullptr, IDC_HAND)); return true;
-                case ulx::cursor::ibeamcur: SetCursor(LoadCursor(nullptr, IDC_IBEAM)); return true;
-                case ulx::cursor::crosscur: SetCursor(LoadCursor(nullptr, IDC_CROSS)); return true;
-                case ulx::cursor::waitcur: SetCursor(LoadCursor(nullptr, IDC_WAIT)); return true;
-                case ulx::cursor::vhsizcur: SetCursor(LoadCursor(nullptr, IDC_SIZEWE)); return true;
-                case ulx::cursor::vsizcur: SetCursor(LoadCursor(nullptr, IDC_SIZENS)); return true;
-                case ulx::cursor::hsizcur: SetCursor(LoadCursor(nullptr, IDC_SIZEWE)); return true;
-                case ulx::cursor::nocur: SetCursor(LoadCursor(nullptr, IDC_NO)); return true;
-                case ulx::cursor::helpcur: SetCursor(LoadCursor(nullptr, IDC_HELP)); return true;
-                case ulx::cursor::uparrowcur: SetCursor(LoadCursor(nullptr, IDC_UPARROW)); return true;
-                case ulx::cursor::appstartingcur: SetCursor(LoadCursor(nullptr, IDC_APPSTARTING)); return true;
-                case ulx::cursor::ldiagcur: SetCursor(LoadCursor(nullptr, IDC_SIZENWSE)); return true;
-                case ulx::cursor::rdiagcur: SetCursor(LoadCursor(nullptr, IDC_SIZENESW)); return true;
-                case ulx::cursor::sizallcur: SetCursor(LoadCursor(nullptr, IDC_SIZEALL)); return true;
+            switch (ctx->curs) {
+                case resetcur: return DefWindowProcW(hwnd, message, wparam, lparam);
+                case arrowcur: SetCursor(LoadCursor(nullptr, IDC_ARROW)); return true;
+                case handcur: SetCursor(LoadCursor(nullptr, IDC_HAND)); return true;
+                case ibeamcur: SetCursor(LoadCursor(nullptr, IDC_IBEAM)); return true;
+                case crosscur: SetCursor(LoadCursor(nullptr, IDC_CROSS)); return true;
+                case waitcur: SetCursor(LoadCursor(nullptr, IDC_WAIT)); return true;
+                case vhsizcur: SetCursor(LoadCursor(nullptr, IDC_SIZEWE)); return true;
+                case vsizcur: SetCursor(LoadCursor(nullptr, IDC_SIZENS)); return true;
+                case hsizcur: SetCursor(LoadCursor(nullptr, IDC_SIZEWE)); return true;
+                case nocur: SetCursor(LoadCursor(nullptr, IDC_NO)); return true;
+                case helpcur: SetCursor(LoadCursor(nullptr, IDC_HELP)); return true;
+                case uparrowcur: SetCursor(LoadCursor(nullptr, IDC_UPARROW)); return true;
+                case appstartingcur: SetCursor(LoadCursor(nullptr, IDC_APPSTARTING)); return true;
+                case ldiagcur: SetCursor(LoadCursor(nullptr, IDC_SIZENWSE)); return true;
+                case rdiagcur: SetCursor(LoadCursor(nullptr, IDC_SIZENESW)); return true;
+                case sizallcur: SetCursor(LoadCursor(nullptr, IDC_SIZEALL)); return true;
             }
 
             return DefWindowProcW(hwnd, message, wparam, lparam);
@@ -418,49 +396,53 @@ inline auto ulx::context::win32_process(HWND hwnd, UINT message, WPARAM wparam, 
 inline auto ulx::context::debug_callback(VkDebugUtilsMessageSeverityFlagBitsEXT message_severity, [[maybe_unused]] VkDebugUtilsMessageTypeFlagsEXT message_type, const VkDebugUtilsMessengerCallbackDataEXT* callback_data, [[maybe_unused]] auto* user_data) -> VkBool32 {
     switch (message_severity) {
         case VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT:
-            ulx::log::warn(callback_data->pMessage);
+            log::warn(callback_data->pMessage);
             break;
         case VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT:
-            ulx::log::err(callback_data->pMessage);
+            log::err(callback_data->pMessage);
         default: break;
     }
 
     return VK_FALSE;
 }
 
-inline auto ulx::context::create_window(const ulx::wininfo& window_info, const ulx::appinfo& app_info) -> void {
-    ulx::str window_class_name = window_info.get_window_class_name();
-    ulx::str window_title = window_info.get_window_title();
-    ulx::wstr window_wide_class_name = ulx::wstr(window_class_name.begin(), window_class_name.end());
-    ulx::wstr window_wide_title = ulx::wstr(window_title.begin(), window_title.end());
-    ulx::file icon_file_path = app_info.get_icon_file_path();
-    ulx::str icon_file_path_str = icon_file_path.path();
-    ulx::wstr window_wide_icon = ulx::wstr(icon_file_path_str.begin(), icon_file_path_str.end());
+inline auto ulx::context::create_window(const wininfo& window_info, const appinfo& app_info) -> void {
+    str window_class_name = window_info.get_window_class_name();
+    str window_title = window_info.get_window_title();
+    wstr window_wide_class_name = wstr(window_class_name.begin(), window_class_name.end());
+    wstr window_wide_title = wstr(window_title.begin(), window_title.end());
+    file icon_file_path = app_info.get_icon_file_path();
+    pathstr icon_file_path_str = icon_file_path.path();
+    wstr window_wide_icon = wstr(icon_file_path_str.begin(), icon_file_path_str.end());
 
-    ulx::recsize window_size = window_info.get_initial_window_size();
-    ulx::recpos window_pos = window_info.get_initial_window_pos();
+    recsize window_size = window_info.get_initial_window_size();
+    recpos window_pos = window_info.get_initial_window_pos();
 
     window_min_size = window_info.get_min_window_size();
     window_max_size = window_info.get_max_window_size();
-    if (window_size.width() > window_min_size.width()) window_size = window_min_size;
-    if (window_size.height() > window_min_size.height()) window_size = window_min_size;
-    if (window_size.width() > window_max_size.width()) window_size = window_max_size;
-    if (window_size.height() > window_max_size.height()) window_size = window_max_size;
-    ulx::u32 physical_window_width = ulx::wfn::physical_cast(window_size.width());
-    ulx::u32 physical_window_height = ulx::wfn::physical_cast(window_size.height());
-    ulx::i32 physical_window_x = ulx::wfn::physical_cast(window_pos.x());
-    ulx::i32 physical_window_y = ulx::wfn::physical_cast(window_pos.y());
+    if (window_size.width() < window_min_size.width()) window_size = {window_min_size.width(), window_size.height()};
+    if (window_size.height() < window_min_size.height()) window_size = {window_size.width(), window_min_size.height()};
+    if (window_size.width() > window_max_size.width()) window_size = {window_max_size.width(), window_size.height()};
+    if (window_size.height() > window_max_size.height()) window_size = {window_size.width(), window_max_size.height()};
+    window_min_size = {wfn::physical(window_min_size.width()), wfn::physical(window_min_size.height())};
+    window_max_size = {wfn::physical(window_max_size.width()), wfn::physical(window_max_size.height())};
+
+    
+    u32 physical_window_width = wfn::physical(window_size.width());
+    u32 physical_window_height = wfn::physical(window_size.height());
+    i32 physical_window_x = wfn::physical(window_pos.x());
+    i32 physical_window_y = wfn::physical(window_pos.y());
 
     DWORD window_style = WS_OVERLAPPED | WS_CAPTION | WS_THICKFRAME | WS_MINIMIZEBOX | WS_MAXIMIZEBOX;
-    if (window_info.get_window_attrs() & ulx::winattr::titled) {
-        window_titled_state = true;
-    } else if (!(window_info.get_window_attrs() & ulx::winattr::bordered)) {
+    if (window_info.get_window_attrs() & titledattr) {
+        window_titled = true;
+    } else if (!(window_info.get_window_attrs() & borderedattr)) {
         window_style &= ~WS_BORDER;
-        window_resizable_state = false;
+        window_resizable = false;
     }
 
-    if (window_info.get_window_attrs() & ulx::winattr::resizable) {
-        window_resizable_state = true;
+    if (window_info.get_window_attrs() & resizableattr) {
+        window_resizable = true;
     } else {
         window_style &= ~WS_THICKFRAME;
         window_style &= ~WS_MAXIMIZEBOX;
@@ -470,8 +452,8 @@ inline auto ulx::context::create_window(const ulx::wininfo& window_info, const u
     wcex.cbSize = sizeof(WNDCLASSEXW);
     wcex.style = CS_HREDRAW | CS_VREDRAW;
     wcex.lpfnWndProc = win32_process;
-    wcex.hInstance = ulx::wfn::hinstance;
-    wcex.hCursor = LoadCursorW(nullptr, ulx::wfn::make_int_resource(32512));
+    wcex.hInstance = wfn::hinstance;
+    wcex.hCursor = LoadCursorW(nullptr, wfn::make_int_resource(32512));
     wcex.lpszClassName = window_wide_class_name.c_str();
     if (icon_file_path.exists()) {
         wcex.hIcon = reinterpret_cast<HICON>(LoadImageW(
@@ -483,15 +465,15 @@ inline auto ulx::context::create_window(const ulx::wininfo& window_info, const u
             IMAGE_ICON, 0, 0,
             LR_LOADFROMFILE ));
     }
-    ulx::log::expect(RegisterClassExW(&wcex),
+    log::expect(RegisterClassExW(&wcex),
         "context.hpp: create_window(): RegisterClassExW(): failed to register window class, error code: {}",
         GetLastError());
 
     window_hwnd = CreateWindowExW(
         0, window_wide_class_name.c_str(), window_wide_title.c_str(),
         window_style, physical_window_x, physical_window_y, physical_window_width, physical_window_height,
-        nullptr, nullptr, ulx::wfn::hinstance, this);
-    ulx::log::expect(window_hwnd, "context.hpp: create_window(): CreateWindowExW(): failed to create window, error code: {}", GetLastError());
+        nullptr, nullptr, wfn::hinstance, this);
+    log::expect(window_hwnd, "context.hpp: create_window(): CreateWindowExW(): failed to create window, error code: {}", GetLastError());
 
     window_dpi = GetDpiForWindow(window_hwnd);
     ulx::window_dpi = window_dpi;
@@ -501,25 +483,21 @@ inline auto ulx::context::create_window(const ulx::wininfo& window_info, const u
     int caption_height = GetSystemMetricsForDpi(SM_CYCAPTION, window_dpi);
     int border_padding = GetSystemMetricsForDpi(SM_CXPADDEDBORDER, window_dpi);
     int border_size = GetSystemMetricsForDpi(SM_CXBORDER, window_dpi);
-    window_titlebar_height = caption_height + border_padding + border_size*2 + 1;
+    window_native_titlebar_height = caption_height + border_padding + border_size*2 + 1;
     SetWindowPos(window_hwnd, nullptr, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_FRAMECHANGED);
 
     RECT rect; GetClientRect(window_hwnd, &rect);
-    window_current_width = rect.right - rect.left;
-    window_current_height = rect.bottom - rect.top;
-    titlebar_height = ulx::wfn::physical_cast(window_info.get_titlebar_height(), window_dpi);
-    close_button_width = ulx::wfn::physical_cast(window_info.get_close_button_width(), window_dpi);
-    min_button_width = ulx::wfn::physical_cast(window_info.get_min_button_width(), window_dpi);
-    max_button_width = ulx::wfn::physical_cast(window_info.get_max_button_width(), window_dpi);
+    window_width = rect.right - rect.left;
+    window_height = rect.bottom - rect.top;
+    vtitlebar_height = wfn::physical(window_info.get_titlebar_height(), window_dpi);
+    vclosebtn_width = wfn::physical(window_info.get_close_button_width(), window_dpi);
+    vminbtn_width = wfn::physical(window_info.get_min_button_width(), window_dpi);
+    vmaxbtn_width = wfn::physical(window_info.get_max_button_width(), window_dpi);
 }
 
-template<typename AI, typename WI, typename RI>
-    requires ulx::expect<AI, ulx::appinfo> &&
-             ulx::expect<WI, ulx::wininfo> &&
-             ulx::expect<RI, ulx::renderinfo>
-inline constexpr ulx::context::context(AI&& application_info, WI&& window_info, RI&& render_info) {
-    create_window(std::forward<WI>(window_info), std::forward<AI>(application_info));
-    create_vulkan_objects(std::forward<AI>(application_info), std::forward<RI>(render_info));
+inline constexpr ulx::context::context(const appinfo& application_info, const wininfo& window_info, const renderinfo& render_info) {
+    create_window(window_info, application_info);
+    create_vulkan_objects(application_info, render_info);
 }
 
 inline ulx::context::~context() { destroy_vulkan_objects(); }
@@ -535,40 +513,40 @@ inline auto ulx::context::exec() -> int {
     return 0;
 }
 
-inline auto ulx::context::set_min(const ulx::recsize& size) -> void { window_min_size = size; }
-inline auto ulx::context::set_max(const ulx::recsize& size) -> void { window_max_size = size; }
+inline auto ulx::context::set_min(const recsize& size) -> void { window_min_size = size; }
+inline auto ulx::context::set_max(const recsize& size) -> void { window_max_size = size; }
 inline auto ulx::context::show() const -> void { ShowWindow(window_hwnd, SW_SHOW); UpdateWindow(window_hwnd); }
 inline auto ulx::context::hide() const -> void { ShowWindow(window_hwnd, SW_HIDE); UpdateWindow(window_hwnd); }
 inline auto ulx::context::exit() const -> void { PostMessageW(window_hwnd, WM_CLOSE, 0, 0); }
-inline auto ulx::context::size() const -> ulx::recsize { return ulx::recsize(ulx::wfn::logical_cast(window_current_width), ulx::wfn::logical_cast(window_current_height)); }
-inline auto ulx::context::width() const -> ulx::f32 { return ulx::wfn::logical_cast(window_current_width); }
-inline auto ulx::context::height() const -> ulx::f32 { return ulx::wfn::logical_cast(window_current_height); }
-inline auto ulx::context::pos() const -> ulx::recpos {
+inline auto ulx::context::size() const -> recsize { return {wfn::logical(window_width), wfn::logical(window_height)}; }
+inline auto ulx::context::width() const -> f32 { return wfn::logical(window_width); }
+inline auto ulx::context::height() const -> f32 { return wfn::logical(window_height); }
+inline auto ulx::context::pos() const -> recpos {
     RECT window_rect{}; GetWindowRect(window_hwnd, &window_rect);
-    return ulx::recpos(ulx::wfn::logical_cast(window_rect.left), ulx::wfn::logical_cast(window_rect.top));
+    return {wfn::logical(window_rect.left), wfn::logical(window_rect.top)};
 }
-inline auto ulx::context::x() const -> ulx::f32 { return pos().x(); }
-inline auto ulx::context::y() const -> ulx::f32 { return pos().y(); }
+inline auto ulx::context::x() const -> f32 { return pos().x(); }
+inline auto ulx::context::y() const -> f32 { return pos().y(); }
 
 
-inline auto ulx::context::mov(const ulx::recpos& pos) -> void {
-    ulx::i32 physical_x = ulx::wfn::physical_cast(pos.x());
-    ulx::i32 physical_y = ulx::wfn::physical_cast(pos.y());
-    MoveWindow(window_hwnd, physical_x, physical_y, window_current_width, window_current_height, TRUE);
+inline auto ulx::context::mov(const recpos& pos) -> void {
+    i32 physical_x = wfn::physical(pos.x());
+    i32 physical_y = wfn::physical(pos.y());
+    MoveWindow(window_hwnd, physical_x, physical_y, window_width, window_height, TRUE);
 }
 
-inline auto ulx::context::resize(const ulx::recsize& size) -> void {
-    ulx::u32 physical_width = ulx::wfn::physical_cast(size.width());
-    ulx::u32 physical_height = ulx::wfn::physical_cast(size.height());
+inline auto ulx::context::resize(const recsize& size) -> void {
+    u32 physical_width = wfn::physical(size.width());
+    u32 physical_height = wfn::physical(size.height());
     MoveWindow(window_hwnd, x(), y(), physical_width, physical_height, TRUE);
-    window_current_width = physical_width;
-    window_current_height = physical_height;
+    window_width = physical_width;
+    window_height = physical_height;
 }
 
 inline auto ulx::context::create_vulkan_instance() -> void {
     VkApplicationInfo vulkan_application_info{};
     vulkan_application_info.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
-    vulkan_application_info.pApplicationName = application_id.c_str();
+    vulkan_application_info.pApplicationName = application_id.cstr();
     vulkan_application_info.applicationVersion = application_version;
     vulkan_application_info.pEngineName = "No Engine";
     vulkan_application_info.engineVersion = VK_MAKE_VERSION(1, 0, 0);
@@ -583,7 +561,7 @@ inline auto ulx::context::create_vulkan_instance() -> void {
     VkDebugUtilsMessengerCreateInfoEXT debug_utils_messenger_create_info;
 
     #ifndef ULIXRELEASE
-        ulx::log::expect(check_validation_layer_support(), "context.hpp: create_vulkan_instance(): check_validation_layer_support(): requested validation layers not available");
+        log::expect(check_validation_layer_support(), "context.hpp: create_vulkan_instance(): check_validation_layer_support(): requested validation layers not available");
 
         vulkan_instance_create_info.enabledLayerCount++;
         vulkan_instance_create_info.enabledExtensionCount++;
@@ -601,9 +579,9 @@ inline auto ulx::context::create_vulkan_instance() -> void {
 }
 
 inline auto ulx::context::check_validation_layer_support() -> bool {
-    ulx::u32 layer_count = 0;
+    u32 layer_count = 0;
     vkEnumerateInstanceLayerProperties(&layer_count, VK_NULL_HANDLE);
-    ulx::vec<VkLayerProperties> available_layers = ulx::vec<VkLayerProperties>(layer_count);
+    vec<VkLayerProperties> available_layers = vec<VkLayerProperties>(layer_count);
     vkEnumerateInstanceLayerProperties(&layer_count, available_layers.data());
 
     for (const auto& layer_properties : available_layers) {
@@ -619,8 +597,8 @@ inline auto ulx::context::create_debug_messenger() -> void {
         populate_debug_messenger_create_info(debug_utils_messenger_create_info);
 
         auto vkCreateDebugUtilsMessengerEXT = reinterpret_cast<PFN_vkCreateDebugUtilsMessengerEXT>(vkGetInstanceProcAddr(vulkan_instance, "vkCreateDebugUtilsMessengerEXT"));
-        ulx::log::expect(vkCreateDebugUtilsMessengerEXT, "context.hpp: create_debug_messenger(): vkGetInstanceProcAddr(): failed to get function pointer vkCreateDebugUtilsMessengerEXT from Vulkan instance");
-        ulx::log::vk(vkCreateDebugUtilsMessengerEXT(vulkan_instance, &debug_utils_messenger_create_info, VK_NULL_HANDLE, &debug_messenger),
+        log::expect(vkCreateDebugUtilsMessengerEXT, "context.hpp: create_debug_messenger(): vkGetInstanceProcAddr(): failed to get function pointer vkCreateDebugUtilsMessengerEXT from Vulkan instance");
+        log::vk(vkCreateDebugUtilsMessengerEXT(vulkan_instance, &debug_utils_messenger_create_info, VK_NULL_HANDLE, &debug_messenger),
             "context.hpp: create_debug_messenger(): vkCreateDebugUtilsMessengerEXT(): failed to create debug messenger");
     #endif
 }
@@ -630,7 +608,7 @@ inline auto ulx::context::destroy_debug_utils_messenger() -> void {
         return;
 
     auto vkDestroyDebugUtilsMessengerEXT = (PFN_vkDestroyDebugUtilsMessengerEXT) vkGetInstanceProcAddr(vulkan_instance, "vkDestroyDebugUtilsMessengerEXT");
-    ulx::log::expect(vkDestroyDebugUtilsMessengerEXT, "context.hpp: destroy_debug_utils_messenger(): vkGetInstanceProcAddr(): failed to get function pointer vkDestroyDebugUtilsMessengerEXT from Vulkan instance");
+    log::expect(vkDestroyDebugUtilsMessengerEXT, "context.hpp: destroy_debug_utils_messenger(): vkGetInstanceProcAddr(): failed to get function pointer vkDestroyDebugUtilsMessengerEXT from Vulkan instance");
     vkDestroyDebugUtilsMessengerEXT(vulkan_instance, debug_messenger, VK_NULL_HANDLE);
 }
 
@@ -643,22 +621,22 @@ inline auto ulx::context::populate_debug_messenger_create_info(VkDebugUtilsMesse
 }
 
 inline auto ulx::context::select_physical_device() -> void {
-    ulx::u32 physical_device_count = 0;
+    u32 physical_device_count = 0;
     vkEnumeratePhysicalDevices(vulkan_instance, &physical_device_count, VK_NULL_HANDLE);
-    ulx::log::expect(physical_device_count > 0, "context.hpp: select_physical_device(): vkEnumeratePhysicalDevices(): failed to find GPUs with Vulkan support");
+    log::expect(physical_device_count > 0, "context.hpp: select_physical_device(): vkEnumeratePhysicalDevices(): failed to find GPUs with Vulkan support");
 
-    ulx::vec<VkPhysicalDevice> physical_devices = ulx::vec<VkPhysicalDevice>(physical_device_count);
+    vec<VkPhysicalDevice> physical_devices = vec<VkPhysicalDevice>(physical_device_count);
     vkEnumeratePhysicalDevices(vulkan_instance, &physical_device_count, physical_devices.data());
 
     VkPhysicalDevice alternative_device = VK_NULL_HANDLE;
-    __uii::vkclses::PhysicalDeviceInfos alternative_device_infos;
-    ulx::u32 last_discrete_gpu_score = 0;
-    ulx::u32 last_alternative_device_score = 0;
+    __uii::vkclses::physical_device_info alternative_device_infos;
+    u32 last_discrete_gpu_score = 0;
+    u32 last_alternative_device_score = 0;
 
     for (auto& device : physical_devices) {
-        __uii::vkclses::PhysicalDeviceInfos device_infos = __uii::vkclses::PhysicalDeviceInfos(device, window_surface);
+        __uii::vkclses::physical_device_info device_infos = __uii::vkclses::physical_device_info(device, window_surface);
         if (!device_infos.is_suitable()) continue;
-        ulx::u32 score = __uii::vkalg::get_device_score(device_infos);
+        u32 score = __uii::vkalg::get_device_score(device_infos);
         if (device_infos.match_gpu_type(VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU) && score > last_discrete_gpu_score) {
             last_discrete_gpu_score = score;
             physical_device = device;
@@ -671,17 +649,17 @@ inline auto ulx::context::select_physical_device() -> void {
     }
 
     if (physical_device != VK_NULL_HANDLE) return;
-    ulx::log::expect(alternative_device != VK_NULL_HANDLE, "context.hpp: select_physical_device(): failed to select a suitable GPU");
+    log::expect(alternative_device != VK_NULL_HANDLE, "context.hpp: select_physical_device(): failed to select a suitable GPU");
 
     physical_device = alternative_device;
     physical_device_infos = alternative_device_infos;
 }
 
 inline auto ulx::context::create_logical_device() -> void {
-    ulx::vec<VkDeviceQueueCreateInfo> device_queue_create_infos;
-    ulx::set<ulx::u32> unique_queue_family_indices = physical_device_infos.get_unique_queue_family_indices();
-    float queue_priorities = 1.0f;
-    for (ulx::u32 index : unique_queue_family_indices) {
+    vec<VkDeviceQueueCreateInfo> device_queue_create_infos;
+    set<u32> unique_queue_family_indices = physical_device_infos.get_unique_queue_family_indices();
+    f32 queue_priorities = 1.0f;
+    for (u32 index : unique_queue_family_indices) {
         VkDeviceQueueCreateInfo device_queue_create_info{};
         device_queue_create_info.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
         device_queue_create_info.queueFamilyIndex = index;
@@ -701,17 +679,17 @@ inline auto ulx::context::create_logical_device() -> void {
 
     VkDeviceCreateInfo device_create_info{};
     device_create_info.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
-    device_create_info.queueCreateInfoCount = static_cast<ulx::u32>(device_queue_create_infos.size());
+    device_create_info.queueCreateInfoCount = static_cast<u32>(device_queue_create_infos.size());
     device_create_info.pQueueCreateInfos = device_queue_create_infos.data();
     device_create_info.pEnabledFeatures = &physical_device_features;
     device_create_info.enabledExtensionCount = 1;
     device_create_info.ppEnabledExtensionNames = __uii::vkreqs::enabled_extensions;
     device_create_info.pNext = &features12;
-    ulx::log::vk(vkCreateDevice(physical_device, &device_create_info, VK_NULL_HANDLE, &logical_device),
+    log::vk(vkCreateDevice(physical_device, &device_create_info, VK_NULL_HANDLE, &logical_device),
         "context.hpp: create_logical_device(): vkCreateDevice(): failed to create logical device");
 
 
-    device_queues = __uii::vkclses::DeviceQueues(logical_device, physical_device_infos);
+    device_queues = __uii::vkclses::device_queues(logical_device, physical_device_infos);
 }
 
 inline auto ulx::context::create_window_surface() -> void {
@@ -719,19 +697,18 @@ inline auto ulx::context::create_window_surface() -> void {
     win32_surface_create_info.sType = VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR;
     win32_surface_create_info.hwnd = window_hwnd;
     win32_surface_create_info.hinstance = ulx::wfn::hinstance;
-
-    ulx::log::vk(vkCreateWin32SurfaceKHR(vulkan_instance, &win32_surface_create_info, VK_NULL_HANDLE, &window_surface),
+    log::vk(vkCreateWin32SurfaceKHR(vulkan_instance, &win32_surface_create_info, VK_NULL_HANDLE, &window_surface),
         "context.hpp: create_window_surface(): vkCreateWin32SurfaceKHR(): failed to create win32 window surface");
 }
 
 inline auto ulx::context::create_swapchain(VkSwapchainKHR old_swapchain) -> void {
-    vkGetPhysicalDeviceSurfaceCapabilitiesKHR(physical_device, window_surface, &physical_device_infos.swapchain_support_details.surface_capabilities);
-    __uii::vkclses::SwapchainSupportDetails& swapchain_support_details = physical_device_infos.swapchain_support_details;
-    __uii::vkclses::OptionalQueueFamilyIndices& optional_queue_family_indices = physical_device_infos.queue_family_indices;
+    vkGetPhysicalDeviceSurfaceCapabilitiesKHR(physical_device, window_surface, &physical_device_infos.swapchain_details.surface_capabilities);
+    __uii::vkclses::swapchain_support_details& swapchain_support_details = physical_device_infos.swapchain_details;
+    __uii::vkclses::queue_family_indices& optional_queue_family_indices = physical_device_infos.queue_family_indices;
     VkSurfaceFormatKHR surface_format = swapchain_support_details.select_surface_format();
     VkExtent2D extent = swapchain_support_details.select_extent(window_hwnd);
-    ulx::u32 queue_family_indices[] = { optional_queue_family_indices.graphics_queue_family_index.value(), optional_queue_family_indices.present_queue_family_index.value() };
-    ulx::u32 min_image_count = swapchain_support_details.surface_capabilities.minImageCount + 1;
+    u32 queue_family_indices[] = { optional_queue_family_indices.graphics_queue_family_index.value(), optional_queue_family_indices.present_queue_family_index.value() };
+    u32 min_image_count = swapchain_support_details.surface_capabilities.minImageCount + 1;
     if (swapchain_support_details.surface_capabilities.maxImageCount > 0 && min_image_count > swapchain_support_details.surface_capabilities.maxImageCount)
         min_image_count = swapchain_support_details.surface_capabilities.maxImageCount;
 
@@ -753,37 +730,36 @@ inline auto ulx::context::create_swapchain(VkSwapchainKHR old_swapchain) -> void
         swapchain_create_info.imageSharingMode = VK_SHARING_MODE_CONCURRENT;
         swapchain_create_info.queueFamilyIndexCount = 2;
         swapchain_create_info.pQueueFamilyIndices = queue_family_indices; };
-    ulx::log::vk(vkCreateSwapchainKHR(logical_device, &swapchain_create_info, VK_NULL_HANDLE, &swapchain),
+    log::vk(vkCreateSwapchainKHR(logical_device, &swapchain_create_info, VK_NULL_HANDLE, &swapchain),
         "context.hpp: create_swapchain(): vkCreateSwapchainKHR(): failed to create swapchain");
 
 
     swapchain_image_format = surface_format.format;
     swapchain_extent = extent;
-    window_current_width = extent.width;
-    window_current_height = extent.height;
+    window_width = extent.width;
+    window_height = extent.height;
 
     get_swapchain_images();
 }
 
 inline auto ulx::context::create_render_finished_semaphores() -> void {
-    render_finished_semaphores.resize(swapchain_image_count);
+    render_finished_semaphores.resize(max_frames_in_flight);
     
     VkSemaphoreCreateInfo semaphore_info{};
     semaphore_info.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
-    for (ulx::u32 index = 0; index < swapchain_image_count; index++) {
-        ulx::log::vk(vkCreateSemaphore(logical_device, &semaphore_info, nullptr, &render_finished_semaphores[index]),
+    for (u32 index = 0; index < max_frames_in_flight; index++) {
+        log::vk(vkCreateSemaphore(logical_device, &semaphore_info, nullptr, &render_finished_semaphores[index]),
             "context.hpp: create_render_finished_semaphores_per_image(): failed");
     }
 }
 
 inline auto ulx::context::get_swapchain_images() -> void {
-    ulx::u32 image_count = 0;
+    u32 image_count = 0;
     vkGetSwapchainImagesKHR(logical_device, swapchain, &image_count, VK_NULL_HANDLE);
     swapchain_images.resize(image_count);
     vkGetSwapchainImagesKHR(logical_device, swapchain, &image_count, swapchain_images.data());
 
-    max_frames_in_flight = static_cast<ulx::size>(image_count);
-    swapchain_image_count = image_count;
+    max_frames_in_flight = image_count;
 }
 
 inline auto ulx::context::create_swapchain_image_views() -> void {
@@ -798,9 +774,9 @@ inline auto ulx::context::create_swapchain_image_views() -> void {
     image_view_create_info.subresourceRange.levelCount = 1;
     image_view_create_info.subresourceRange.baseArrayLayer = 0;
     image_view_create_info.subresourceRange.layerCount = 1;
-    for (ulx::size index = 0; index < swapchain_images.size(); index++) {
+    for (u64 index = 0; index < swapchain_images.size(); index++) {
         image_view_create_info.image = swapchain_images[index];
-        ulx::log::vk(vkCreateImageView(logical_device, &image_view_create_info, nullptr, &swapchain_image_views[index]), "failed to create swapchain image views");
+        log::vk(vkCreateImageView(logical_device, &image_view_create_info, nullptr, &swapchain_image_views[index]), "failed to create swapchain image views");
     }
 }
 
@@ -811,7 +787,7 @@ inline auto ulx::context::create_shader_module(unsigned char* code, unsigned int
     shader_module_create_info.pCode = reinterpret_cast<ulx::u32*>(code);
 
     VkShaderModule shader_module;
-    ulx::log::vk(vkCreateShaderModule(logical_device, &shader_module_create_info, VK_NULL_HANDLE, &shader_module),
+    log::vk(vkCreateShaderModule(logical_device, &shader_module_create_info, VK_NULL_HANDLE, &shader_module),
         "context.hpp: create_shader_module(): vkCreateShaderModule(): failed to create shader module");
 
 
@@ -841,8 +817,8 @@ inline auto ulx::context::create_graphics_pipeline() -> void {
     pipeline_dynamic_state_create_info.dynamicStateCount = 2;
     pipeline_dynamic_state_create_info.pDynamicStates = __uii::vkreqs::dynamic_states;
 
-    VkVertexInputBindingDescription vertex_input_binding_description = __uii::vsdces::vertex2d::get_binding_description();
-    ulx::vec<VkVertexInputAttributeDescription> vertex_input_attribute_descriptions = __uii::vsdces::vertex2d::get_attribute_descriptions();
+    VkVertexInputBindingDescription vertex_input_binding_description = __uii::vsdces::vertex::get_binding_description();
+    vec<VkVertexInputAttributeDescription> vertex_input_attribute_descriptions = __uii::vsdces::vertex::get_attribute_descriptions();
 
     VkPipelineVertexInputStateCreateInfo pipeline_vertex_input_state_create_info{};
     pipeline_vertex_input_state_create_info.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
@@ -859,8 +835,8 @@ inline auto ulx::context::create_graphics_pipeline() -> void {
     VkViewport viewport{};
     viewport.x = 0.0f;
     viewport.y = 0.0f;
-    viewport.width = static_cast<float>(swapchain_extent.width);
-    viewport.height = static_cast<float>(swapchain_extent.height);
+    viewport.width = static_cast<f32>(swapchain_extent.width);
+    viewport.height = static_cast<f32>(swapchain_extent.height);
     viewport.minDepth = 0.0f;
     viewport.maxDepth = 1.0f;
 
@@ -921,7 +897,7 @@ inline auto ulx::context::create_graphics_pipeline() -> void {
     VkPushConstantRange push_constant_range{};
     push_constant_range.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
     push_constant_range.offset = 0;
-    push_constant_range.size = sizeof(__uii::vsdces::PushConstant);
+    push_constant_range.size = sizeof(__uii::vsdces::push_constant);
 
     VkPipelineLayoutCreateInfo pipeline_layout_create_info{};
     pipeline_layout_create_info.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
@@ -929,18 +905,18 @@ inline auto ulx::context::create_graphics_pipeline() -> void {
     pipeline_layout_create_info.pPushConstantRanges = &push_constant_range;
     pipeline_layout_create_info.setLayoutCount = 1;
     pipeline_layout_create_info.pSetLayouts = &descriptor_set_layout;
-    ulx::log::vk(vkCreatePipelineLayout(logical_device, &pipeline_layout_create_info, VK_NULL_HANDLE, &pipeline_layout),
+    log::vk(vkCreatePipelineLayout(logical_device, &pipeline_layout_create_info, VK_NULL_HANDLE, &pipeline_layout),
         "context.hpp: create_graphics_pipeline(): vkCreatePipelineLayout(): failed to create pipeline layout");
 
 
     __uii::vkalg::ensure_cache_exists(cache_file_path);
-    ulx::vec<char> cache_data = __uii::vkalg::read_cache(cache_file_path);
+    vec<char> cache_data = __uii::vkalg::read_cache(cache_file_path);
     VkPipelineCacheCreateInfo pipeline_cache_create_info{};
     pipeline_cache_create_info.sType = VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO;
     pipeline_cache_create_info.initialDataSize = cache_data.size();
     pipeline_cache_create_info.pInitialData = cache_data.data();
     VkPipelineCache pipeline_cache;
-    ulx::log::vk(vkCreatePipelineCache(logical_device, &pipeline_cache_create_info, nullptr, &pipeline_cache),
+    log::vk(vkCreatePipelineCache(logical_device, &pipeline_cache_create_info, nullptr, &pipeline_cache),
         "context.hpp: create_graphics_pipeline(): vkCreatePipelineCache(): failed to create pipeline cache");
 
 
@@ -961,12 +937,12 @@ inline auto ulx::context::create_graphics_pipeline() -> void {
     graphics_pipeline_create_info.subpass = 0;
     graphics_pipeline_create_info.basePipelineHandle = VK_NULL_HANDLE;
     graphics_pipeline_create_info.basePipelineIndex = -1;
-    ulx::log::vk(vkCreateGraphicsPipelines(logical_device, pipeline_cache, 1, &graphics_pipeline_create_info, VK_NULL_HANDLE, &graphics_pipeline),
+    log::vk(vkCreateGraphicsPipelines(logical_device, pipeline_cache, 1, &graphics_pipeline_create_info, VK_NULL_HANDLE, &graphics_pipeline),
         "context.hpp: create_graphics_pipeline(): vkCreateGraphicsPipelines(): failed to create graphics pipeline");
 
 
-    size_t cache_data_size;
-    ulx::vec<char> new_cache_data;
+    ulx::u64 cache_data_size;
+    vec<char> new_cache_data;
     vkGetPipelineCacheData(logical_device, pipeline_cache, &cache_data_size, nullptr);
     new_cache_data.resize(cache_data_size);
     vkGetPipelineCacheData(logical_device, pipeline_cache, &cache_data_size, new_cache_data.data());
@@ -1012,7 +988,7 @@ inline auto ulx::context::create_render_pass() -> void {
     render_pass_create_info.pSubpasses = &subpass_description;
     render_pass_create_info.dependencyCount = 1;
     render_pass_create_info.pDependencies = &subpass_dependency;
-    ulx::log::vk(vkCreateRenderPass(logical_device, &render_pass_create_info, VK_NULL_HANDLE, &render_pass),
+    log::vk(vkCreateRenderPass(logical_device, &render_pass_create_info, VK_NULL_HANDLE, &render_pass),
         "context.hpp: create_render_pass(): vkCreateRenderPass(): failed to create render pass");
 }
 
@@ -1026,9 +1002,9 @@ inline auto ulx::context::create_swapchain_frame_buffers() -> void {
     frame_buffer_create_info.width = swapchain_extent.width;
     frame_buffer_create_info.height = swapchain_extent.height;
     frame_buffer_create_info.layers = 1;
-    for (ulx::u32 index = 0; index < swapchain_image_count; index++) {
+    for (u32 index = 0; index < max_frames_in_flight; index++) {
         frame_buffer_create_info.pAttachments = &swapchain_image_views[index];
-        ulx::log::vk(vkCreateFramebuffer(logical_device, &frame_buffer_create_info, VK_NULL_HANDLE, &swapchain_frame_buffers[index]),
+        log::vk(vkCreateFramebuffer(logical_device, &frame_buffer_create_info, VK_NULL_HANDLE, &swapchain_frame_buffers[index]),
             "context.hpp: create_swapchain_frame_buffers(): vkCreateFramebuffer(): failed to create frame buffers");
     }
 }
@@ -1038,7 +1014,7 @@ inline auto ulx::context::create_command_pool() -> void {
     command_pool_create_info.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
     command_pool_create_info.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
     command_pool_create_info.queueFamilyIndex = physical_device_infos.queue_family_indices.graphics_queue_family_index.value();
-    ulx::log::vk(vkCreateCommandPool(logical_device, &command_pool_create_info, VK_NULL_HANDLE, &command_pool),
+    log::vk(vkCreateCommandPool(logical_device, &command_pool_create_info, VK_NULL_HANDLE, &command_pool),
         "context.hpp: create_command_pool(): vkCreateCommandPool(): failed to create command pool");
 }
 
@@ -1050,7 +1026,7 @@ inline auto ulx::context::create_command_buffers() -> void {
     command_buffer_allocate_info.commandPool = command_pool;
     command_buffer_allocate_info.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
     command_buffer_allocate_info.commandBufferCount = static_cast<ulx::u32>(command_buffers.size());
-    ulx::log::vk(vkAllocateCommandBuffers(logical_device, &command_buffer_allocate_info, command_buffers.data()),
+    log::vk(vkAllocateCommandBuffers(logical_device, &command_buffer_allocate_info, command_buffers.data()),
         "context.hpp: create_command_buffers(): vkAllocateCommandBuffers(): failed to allocate command buffer");
 }
 
@@ -1065,11 +1041,11 @@ inline auto ulx::context::create_sync_objects() -> void {
     fence_create_info.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
     fence_create_info.flags = VK_FENCE_CREATE_SIGNALED_BIT;
 
-    for (ulx::size index = 0; index < max_frames_in_flight; index++) {
-        if (vkCreateSemaphore(logical_device, &semaphore_create_info, VK_NULL_HANDLE, &image_available_semaphores[index]) != VK_SUCCESS)
-            ulx::log::err("failed to create sync object: image available semaphore");
-        if (vkCreateFence(logical_device, &fence_create_info, VK_NULL_HANDLE, &in_flight_fences[index]) != VK_SUCCESS)
-            ulx::log::err("failed to create sync object: in flight fence");
+    for (u64 index = 0; index < max_frames_in_flight; index++) {
+        log::vk(vkCreateSemaphore(logical_device, &semaphore_create_info, VK_NULL_HANDLE, &image_available_semaphores[index]),
+            "failed to create sync object: image available semaphore");
+        log::vk(vkCreateFence(logical_device, &fence_create_info, VK_NULL_HANDLE, &in_flight_fences[index]), 
+            "failed to create sync object: in flight fence");
     }
 }
 
@@ -1084,8 +1060,8 @@ inline auto ulx::context::destroy_swapchain() -> void {
 inline auto ulx::context::recreate_swapchain() -> void {
     RECT window_rect;
     GetClientRect(window_hwnd, &window_rect);
-    ulx::u32 width = window_rect.right - window_rect.left;
-    ulx::u32 height = window_rect.bottom - window_rect.top;
+    u32 width = window_rect.right - window_rect.left;
+    u32 height = window_rect.bottom - window_rect.top;
     
     MSG msg;
     while (width == 0 || height == 0) {
@@ -1101,9 +1077,9 @@ inline auto ulx::context::recreate_swapchain() -> void {
     }
 
     VkSwapchainKHR old_swapchain = swapchain;
-    ulx::vec<VkFramebuffer> old_framebuffers = std::move(swapchain_frame_buffers);
-    ulx::vec<VkImageView> old_image_views = std::move(swapchain_image_views);
-    ulx::vec<VkSemaphore> old_render_finished_semaphores = std::move(render_finished_semaphores);
+    vec<VkFramebuffer> old_framebuffers = std::move(swapchain_frame_buffers);
+    vec<VkImageView> old_image_views = std::move(swapchain_image_views);
+    vec<VkSemaphore> old_render_finished_semaphores = std::move(render_finished_semaphores);
 
     create_swapchain(old_swapchain);
     create_swapchain_image_views();
@@ -1130,7 +1106,7 @@ inline auto ulx::context::create_texture_buffer() -> void {
 }
 
 inline auto ulx::context::create_vertex_buffer() -> void {
-    VkDeviceSize size = render_vertices.size() * sizeof(__uii::vsdces::vertex2d);
+    VkDeviceSize size = render_vertices.size() * sizeof(__uii::vsdces::vertex);
 
     if (last_vertex_buffer_size < size) {
         if (vertex_buffer.valid()) vertex_buffer.release(logical_device);
@@ -1163,16 +1139,16 @@ inline auto ulx::context::update_object_buffers() -> void {
     create_vertex_buffer();
     create_index_buffer();
 
-    vertex_buffer.map_memory(logical_device, render_vertices.data(), render_vertices.size() * sizeof(__uii::vsdces::vertex2d));
-    index_buffer.map_memory(logical_device, render_indices.data(), render_indices.size() * sizeof(ulx::u32));
+    vertex_buffer.map_memory(logical_device, render_vertices.data(), render_vertices.size() * sizeof(__uii::vsdces::vertex));
+    index_buffer.map_memory(logical_device, render_indices.data(), render_indices.size() * sizeof(u32));
 }
 
-inline auto ulx::context::record_command_buffer(VkCommandBuffer command_buffer, ulx::u32 image_index) -> void {
+inline auto ulx::context::record_command_buffer(VkCommandBuffer command_buffer, u32 image_index) -> void {
     VkCommandBufferBeginInfo command_buffer_begin_info{};
     command_buffer_begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
     command_buffer_begin_info.flags = 0;
     command_buffer_begin_info.pInheritanceInfo = VK_NULL_HANDLE;
-    ulx::log::vk(vkBeginCommandBuffer(command_buffer, &command_buffer_begin_info),
+    log::vk(vkBeginCommandBuffer(command_buffer, &command_buffer_begin_info),
         "context.hpp: record_command_buffer(): vkBeginCommandBuffer(): failed to begin command buffer");
 
     VkClearValue clear_color = {{{current_background_color.red() / 255.0f, current_background_color.green() / 255.0f, current_background_color.blue() / 255.0f, current_background_color.alpha() / 255.0f}}};
@@ -1190,8 +1166,8 @@ inline auto ulx::context::record_command_buffer(VkCommandBuffer command_buffer, 
     VkViewport viewport{};
     viewport.x = 0.0f;
     viewport.y = 0.0f;
-    viewport.width = static_cast<float>(swapchain_extent.width);
-    viewport.height = static_cast<float>(swapchain_extent.height);
+    viewport.width = static_cast<f32>(swapchain_extent.width);
+    viewport.height = static_cast<f32>(swapchain_extent.height);
     viewport.minDepth = 0.0f;
     viewport.maxDepth = 1.0f;
     vkCmdSetViewport(command_buffer, 0, 1, &viewport);
@@ -1207,25 +1183,25 @@ inline auto ulx::context::record_command_buffer(VkCommandBuffer command_buffer, 
 
     vkCmdBindDescriptorSets(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline_layout, 0, 1, &descriptor_sets[current_frame], 0, nullptr);
 
-    vkCmdPushConstants(command_buffer, pipeline_layout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(__uii::vsdces::PushConstant), &push_constant);
-    vkCmdDrawIndexed(command_buffer, static_cast<ulx::u32>(render_indices.size()), 1, 0, 0, 0);
+    vkCmdPushConstants(command_buffer, pipeline_layout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(__uii::vsdces::push_constant), &push_const);
+    vkCmdDrawIndexed(command_buffer, static_cast<u32>(render_indices.size()), 1, 0, 0, 0);
 
     vkCmdEndRenderPass(command_buffer);
-    ulx::log::vk(vkEndCommandBuffer(command_buffer),
+    log::vk(vkEndCommandBuffer(command_buffer),
         "context.hpp: record_command_buffer(): vkEndCommandBuffer(): failed to end command buffer");
 }
 
 inline auto ulx::context::render() -> void {
     if (!pending_framebuffers.empty()) {
         bool all_signaled = true;
-        for (ulx::u32 index = 0; index < max_frames_in_flight; index++) {
+        for (u32 index = 0; index < max_frames_in_flight; index++) {
             VkResult status = vkGetFenceStatus(logical_device, in_flight_fences[index]);
             if (status != VK_SUCCESS) {
                 all_signaled = false;
                 break;
             }
         } if (all_signaled) {
-            for (ulx::size jndex = 0; jndex < pending_framebuffers.size(); jndex++) {
+            for (u64 jndex = 0; jndex < pending_framebuffers.size(); jndex++) {
                 for (auto& framebuffer : pending_framebuffers[jndex])
                     vkDestroyFramebuffer(logical_device, framebuffer, nullptr);
                 for (auto& imageview : pending_image_views[jndex])
@@ -1243,11 +1219,9 @@ inline auto ulx::context::render() -> void {
             pending_semaphores.clear();
         }
     }
-
-    // if (GetForegroundWindow() != window_hwnd) return;
     
     if (first_render) {
-        last_time = std::chrono::steady_clock::now();
+        last_time = steady::now();
         first_render = false;
     }
 
@@ -1264,13 +1238,12 @@ inline auto ulx::context::render() -> void {
     update_scene_objects();
     update_object_buffers();
 
-    ulx::u32 image_index;
-
+    u32 image_index;
     VkResult acquire_result = vkAcquireNextImageKHR(logical_device, swapchain, UINT64_MAX, image_available_semaphores[current_frame], VK_NULL_HANDLE, &image_index);
     if (acquire_result == VK_ERROR_OUT_OF_DATE_KHR || acquire_result == VK_ERROR_SURFACE_LOST_KHR || acquire_result == VK_SUBOPTIMAL_KHR) {
         recreate_swapchain();
         return;
-    } else ulx::log::expect(acquire_result == VK_SUCCESS, "failed to acquire next image");
+    } else log::expect(acquire_result == VK_SUCCESS, "failed to acquire next image");
 
     vkResetFences(logical_device, 1, &in_flight_fences[current_frame]);
     vkResetCommandBuffer(command_buffers[current_frame], 0);
@@ -1286,7 +1259,7 @@ inline auto ulx::context::render() -> void {
     submit_info.pCommandBuffers = &command_buffers[current_frame];
     submit_info.signalSemaphoreCount = 1;
     submit_info.pSignalSemaphores = &render_finished_semaphores[image_index];
-    ulx::log::vk(vkQueueSubmit(device_queues.graphics_queue, 1, &submit_info, in_flight_fences[current_frame]),
+    log::vk(vkQueueSubmit(device_queues.graphics_queue, 1, &submit_info, in_flight_fences[current_frame]),
         "context.hpp: draw_frame(): vkQueueSubmit(): failed to submit queue");
 
     VkPresentInfoKHR present_info{};
@@ -1299,9 +1272,9 @@ inline auto ulx::context::render() -> void {
     vkQueuePresentKHR(device_queues.present_queue, &present_info);
 
     current_frame = (current_frame + 1) % max_frames_in_flight;
-    auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - last_time).count();
+    auto elapsed = ms_cast(steady::now() - last_time).count();
     if (elapsed >= tick_delay && ticker.valid()) {
-        last_time = std::chrono::steady_clock::now();
+        last_time = steady::now();
         ticker(*this, elapsed);
     }
 }
@@ -1318,7 +1291,7 @@ inline auto ulx::context::create_descriptor_set_layout() -> void {
     descriptor_set_layout_create_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
     descriptor_set_layout_create_info.bindingCount = 1;
     descriptor_set_layout_create_info.pBindings = &descriptor_set_layout_binding;
-    ulx::log::vk(vkCreateDescriptorSetLayout(logical_device, &descriptor_set_layout_create_info, nullptr, &descriptor_set_layout),
+    log::vk(vkCreateDescriptorSetLayout(logical_device, &descriptor_set_layout_create_info, nullptr, &descriptor_set_layout),
         "context.hpp: create_descriptor_set_layout(): vkCreateDescriptorSetLayout(): failed to create descriptor set layout");
 }
 
@@ -1337,7 +1310,7 @@ inline auto ulx::context::create_descriptor_update_template() -> void {
     descriptor_update_template_create_info.pDescriptorUpdateEntries = &descriptor_update_template_entry;
     descriptor_update_template_create_info.templateType = VK_DESCRIPTOR_UPDATE_TEMPLATE_TYPE_DESCRIPTOR_SET;
     descriptor_update_template_create_info.descriptorSetLayout = descriptor_set_layout;
-    ulx::log::vk(vkCreateDescriptorUpdateTemplate(logical_device, &descriptor_update_template_create_info, nullptr, &descriptor_update_template),
+    log::vk(vkCreateDescriptorUpdateTemplate(logical_device, &descriptor_update_template_create_info, nullptr, &descriptor_update_template),
         "context.hpp: create_descriptor_update_template(): vkCreateDescriptorUpdateTemplate(): failed to create descriptor update template");
 }
 
@@ -1355,8 +1328,8 @@ inline auto ulx::context::create_descriptor_pools() -> void {
     pool_info.pPoolSizes = &pool_size;
     pool_info.maxSets = 1;
 
-    for (uint32_t i = 0; i < max_frames_in_flight; ++i) {
-        ulx::log::vk(vkCreateDescriptorPool(logical_device, &pool_info, nullptr, &descriptor_pools[i]),
+    for (u32 i = 0; i < max_frames_in_flight; ++i) {
+        log::vk(vkCreateDescriptorPool(logical_device, &pool_info, nullptr, &descriptor_pools[i]),
             "context.hpp: create_descriptor_pools_and_sets(): failed to create descriptor pools");
 
         VkDescriptorSetAllocateInfo alloc_info{};
@@ -1364,35 +1337,35 @@ inline auto ulx::context::create_descriptor_pools() -> void {
         alloc_info.descriptorPool = descriptor_pools[i];
         alloc_info.descriptorSetCount = 1;
         alloc_info.pSetLayouts = &descriptor_set_layout;
-        ulx::log::vk(vkAllocateDescriptorSets(logical_device, &alloc_info, &descriptor_sets[i]),
+        log::vk(vkAllocateDescriptorSets(logical_device, &alloc_info, &descriptor_sets[i]),
             "context.hpp: create_descriptor_pools_and_sets(): failed to allocate descriptor sets");
     }
     update_texture_descriptors();
 }
 
 inline auto ulx::context::update_texture_descriptors() -> void {
-    ulx::vec<VkDescriptorImageInfo> image_infos(max_texture_count);
+    vec<VkDescriptorImageInfo> image_infos(max_texture_count);
 
-    for (ulx::size index = 0; index < max_texture_count; index++) {
+    for (u64 index = 0; index < max_texture_count; index++) {
         image_infos[index].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
         image_infos[index].imageView = texture_images.empty() ? VK_NULL_HANDLE : texture_images[0].image_view;
         image_infos[index].sampler = texture_image_sampler;
     }
 
-    for (ulx::size index = 0; index < texture_images.size(); index++)
+    for (u64 index = 0; index < texture_images.size(); index++)
         image_infos[index].imageView = texture_images[index].image_view;
 
-    for (uint32_t index = 0; index < max_frames_in_flight; index++) {
+    for (u32 index = 0; index < max_frames_in_flight; index++) {
         vkUpdateDescriptorSetWithTemplate(logical_device, descriptor_sets[index], descriptor_update_template, image_infos.data());
     }
 }
 
 inline auto ulx::context::map_texture_images() -> void {
-    ulx::vec<VkDeviceSize> offsets(texture_image_pixmaps.size());
+    vec<VkDeviceSize> offsets(texture_image_pixmaps.size());
     VkDeviceSize current_offset = 0;
-    ulx::u32 memory_type_bits;
+    u32 memory_type_bits;
 
-    for (ulx::size index = 0; index < texture_image_pixmaps.size(); ++index) {
+    for (u64 index = 0; index < texture_image_pixmaps.size(); ++index) {
         VkMemoryRequirements memory_requirements;
         vkGetImageMemoryRequirements(logical_device, texture_images[index].image, &memory_requirements);
         current_offset = (current_offset + memory_requirements.alignment - 1) & ~(memory_requirements.alignment - 1);
@@ -1411,19 +1384,19 @@ inline auto ulx::context::map_texture_images() -> void {
     memory_allocate_info.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
     memory_allocate_info.allocationSize = current_offset;
     memory_allocate_info.memoryTypeIndex = __uii::vkalg::find_memory_type(physical_device, memory_type_bits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-    ulx::log::vk(vkAllocateMemory(logical_device, &memory_allocate_info, nullptr, &texture_image_memory),
+    log::vk(vkAllocateMemory(logical_device, &memory_allocate_info, nullptr, &texture_image_memory),
         "context.hpp: map_texture_images(): vkAllocateMemory(): failed to allocate texture image memory");
 
-    for (ulx::size index = 0; index < texture_image_pixmaps.size(); index++)
+    for (u64 index = 0; index < texture_image_pixmaps.size(); index++)
         vkBindImageMemory(logical_device, texture_images[index].image, texture_image_memory, offsets[index]);
 
     void* mapped; VkDeviceSize staging_offset = 0;
     vkMapMemory(logical_device, texture_buffer.buffer_memory, 0, staging_total_size, 0, &mapped);
     VkCommandBuffer single_time_command_buffer = __uii::vkalg::start_single_time_command_buffer(logical_device, command_pool);
-    for (ulx::size index = 0; index < texture_image_pixmaps.size(); index++) {
+    for (u64 index = 0; index < texture_image_pixmaps.size(); index++) {
         VkImage image = texture_images[index].image;
-        ulx::pixmap pixmap = texture_image_pixmaps[index];
-        ulx::recsize size = pixmap.size();
+        pixmap pixmap = texture_image_pixmaps[index];
+        recsize size = pixmap.size();
 
         memcpy(reinterpret_cast<char*>(mapped) + staging_offset, pixmap.pixels().data(), pixmap.pixel_size());
         offsets[index] = staging_offset;
@@ -1437,10 +1410,10 @@ inline auto ulx::context::map_texture_images() -> void {
     vkUnmapMemory(logical_device, texture_buffer.buffer_memory);
 }
 
-inline auto ulx::context::create_texture_image(ulx::size index) -> VkMemoryRequirements {
+inline auto ulx::context::create_texture_image(ulx::u64 index) -> VkMemoryRequirements {
     VkImage& texture = texture_images[index].image;
-    ulx::pixmap pixmap = texture_image_pixmaps[index];
-    ulx::recsize size = pixmap.size();
+    pixmap pixmap = texture_image_pixmaps[index];
+    recsize size = pixmap.size();
 
     VkImageCreateInfo image_create_info{};
     image_create_info.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
@@ -1456,7 +1429,7 @@ inline auto ulx::context::create_texture_image(ulx::size index) -> VkMemoryRequi
     image_create_info.usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
     image_create_info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
     image_create_info.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-    ulx::log::vk(vkCreateImage(logical_device, &image_create_info, VK_NULL_HANDLE, &texture),
+    log::vk(vkCreateImage(logical_device, &image_create_info, VK_NULL_HANDLE, &texture),
         "context.hpp: create_texture_image(): vkCreateImage(): failed to create texture image");
 
     VkMemoryRequirements memory_requirements;
@@ -1465,7 +1438,7 @@ inline auto ulx::context::create_texture_image(ulx::size index) -> VkMemoryRequi
 }
 
 inline auto ulx::context::create_texture_image_views() -> void {
-    for (ulx::size index = 0; index < texture_images.size(); ++index)
+    for (u64 index = 0; index < texture_images.size(); ++index)
         texture_images[index].image_view = __uii::vkalg::create_image_view(logical_device, texture_images[index].image, VK_FORMAT_R8G8B8A8_UNORM);
 }
 
@@ -1487,17 +1460,17 @@ inline auto ulx::context::create_texture_image_sampler() -> void {
     sampler_create_info.mipLodBias = 0.0f;
     sampler_create_info.minLod = 0.0f;
     sampler_create_info.maxLod = 0.0f;
-    ulx::log::vk(vkCreateSampler(logical_device, &sampler_create_info, nullptr, &texture_image_sampler),
+    log::vk(vkCreateSampler(logical_device, &sampler_create_info, nullptr, &texture_image_sampler),
         "context.hpp: create_texture_image_sampler(): vkCreateSampler(): failed to create texture image sampler");
 }
 
 inline auto ulx::context::push_texture_image(const ulx::pixmap& pixmap) -> void {
     texture_image_pixmaps.push_back(pixmap);
-    push_texture_images_to_gpu = true;
+    need_to_push_textures = true;
 }
 
 inline auto ulx::context::push_texture_images() -> void {
-    push_texture_images_to_gpu = false;
+    need_to_push_textures = false;
 
     auto old_textures = std::move(texture_images);
     auto old_memory = texture_image_memory;
@@ -1517,7 +1490,7 @@ inline auto ulx::context::push_texture_images() -> void {
     pool_info.poolSizeCount = 1;
     pool_info.pPoolSizes = &pool_size;
     pool_info.maxSets = 1;
-    ulx::log::vk(vkCreateDescriptorPool(logical_device, &pool_info, nullptr, &descriptor_pools[current_frame]),
+    log::vk(vkCreateDescriptorPool(logical_device, &pool_info, nullptr, &descriptor_pools[current_frame]),
         "context.hpp: push_texture_images(): failed to create descriptor pool");
 
     VkDescriptorSetAllocateInfo alloc_info{};
@@ -1525,7 +1498,7 @@ inline auto ulx::context::push_texture_images() -> void {
     alloc_info.descriptorPool = descriptor_pools[current_frame];
     alloc_info.descriptorSetCount = 1;
     alloc_info.pSetLayouts = &descriptor_set_layout;
-    ulx::log::vk(vkAllocateDescriptorSets(logical_device, &alloc_info, &descriptor_sets[current_frame]),
+    log::vk(vkAllocateDescriptorSets(logical_device, &alloc_info, &descriptor_sets[current_frame]),
         "context.hpp: push_texture_images(): failed to allocate descriptor set");
 
     update_texture_descriptors();
@@ -1551,7 +1524,7 @@ inline auto ulx::context::recreate_texture_buffer() -> void {
 
 inline auto ulx::context::create_texture_images() -> VkDeviceSize {
     VkDeviceSize size = 0; texture_images.resize(texture_image_pixmaps.size());
-    for (ulx::size index = 0; index < texture_image_pixmaps.size(); index++) {
+    for (ulx::u64 index = 0; index < texture_image_pixmaps.size(); index++) {
         VkMemoryRequirements memory_requirements = create_texture_image(index);
         size += memory_requirements.size;
     }
@@ -1562,27 +1535,22 @@ inline auto ulx::context::create_texture_images() -> VkDeviceSize {
 inline auto ulx::context::destroy_vulkan_objects() -> void {
     vkDeviceWaitIdle(logical_device);
 
-    while (!pending_fns.empty()) {
-        pending_fns.front().get();
-        pending_fns.pop();
-    }
-
     vkDestroyDescriptorUpdateTemplate(logical_device, descriptor_update_template, nullptr);
     destroy_swapchain();
     vkDestroySampler(logical_device, texture_image_sampler, nullptr);
     for (auto& image : texture_images)
         image.release(logical_device);
     vkFreeMemory(logical_device, texture_image_memory, VK_NULL_HANDLE);
-    for (uint32_t index = 0; index < max_frames_in_flight; index++)
+    for (u32 index = 0; index < max_frames_in_flight; index++)
         vkDestroyDescriptorPool(logical_device, descriptor_pools[index], nullptr);
 
     vkDestroyDescriptorSetLayout(logical_device, descriptor_set_layout, VK_NULL_HANDLE);
     index_buffer.release(logical_device);
     vertex_buffer.release(logical_device);
     texture_buffer.release(logical_device);
-    for (ulx::u32 i = 0; i < render_finished_semaphores.size(); i++)
+    for (u32 i = 0; i < render_finished_semaphores.size(); i++)
         vkDestroySemaphore(logical_device, render_finished_semaphores[i], nullptr);
-    for (ulx::size index = 0; index < max_frames_in_flight; index++) {
+    for (u64 index = 0; index < max_frames_in_flight; index++) {
         vkDestroySemaphore(logical_device, image_available_semaphores[index], VK_NULL_HANDLE);
         vkDestroyFence(logical_device, in_flight_fences[index], VK_NULL_HANDLE);
     }
@@ -1596,7 +1564,7 @@ inline auto ulx::context::destroy_vulkan_objects() -> void {
     vkDestroyInstance(vulkan_instance, VK_NULL_HANDLE);
 }
 
-inline auto ulx::context::create_vulkan_objects(const ulx::appinfo& application_info, const ulx::renderinfo& render_info) -> void {
+inline auto ulx::context::create_vulkan_objects(const appinfo& application_info, const renderinfo& render_info) -> void {
     renderer = render_info.get_render_callback();
     texture_image_pixmaps = { __uii::vkalg::empty_pixmap() };
     cache_file_path = application_info.get_pipeline_cache_file_path().path();
