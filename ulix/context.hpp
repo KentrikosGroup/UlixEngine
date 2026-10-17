@@ -1,4 +1,6 @@
 #pragma once
+#include "__class_decl/context.hpp"
+#include "__inside_impl/atlaspusher.hpp"
 #include "glm/ext/matrix_clip_space.hpp"
 #include "stablestr.hpp"
 #define NOMINMAX
@@ -9,13 +11,13 @@
 #include "file.hpp"
 #include "box.hpp"
 #include "pixmap.hpp"
-#include "recpos.hpp"
-#include "recsize.hpp"
+#include "point.hpp"
+#include "size.hpp"
 #include "renderinfo.hpp"
 #include "scene.hpp"
 #include "log.hpp"
 #include "color.hpp"
-#include "object.hpp"
+#include "element.hpp"
 #include "wininfo.hpp"
 #include "appinfo.hpp"
 #include "winfunc.hpp"
@@ -24,7 +26,6 @@
 #include "__inside_impl/vulkan_shader_data_classes.hpp"
 #include "__inside_impl/vulkan_algorithm.hpp"
 #include "__inside_impl/vulkan_requirements.hpp"
-#include "__class_decl/context.hpp"
 #include "__builtin_shaders/fragment_shader.inl"
 #include "__builtin_shaders/vertex_shader.inl"
 #include <vulkan/vulkan.h>
@@ -38,8 +39,9 @@ inline auto ulx::context::update_push_constant() -> void {
         -1.0f, 1.0f);
 }
 
-inline auto ulx::context::update_texture_images(recsize& siz, const object& object, u32& texture_index) -> void {
-    object::texture_variant texture_variant = object.get_texture();
+inline auto ulx::context::update_texture_images(ulx::size& siz, const element& object, u32& texture_index) -> __uii::ats::uv {
+    element::texture_variant texture_variant = object.get_texture();
+    __uii::ats::uv resuv = {{0, 0}, {1, 1}};
 
     std::visit([&](auto&& arg) {
         using T = std::decay_t<decltype(arg)>;
@@ -47,61 +49,69 @@ inline auto ulx::context::update_texture_images(recsize& siz, const object& obje
         if constexpr (std::same_as<T, std::monostate>) {
             texture_index = 0;
         } else if constexpr (std::same_as<T, file>) {
-            auto it = bitmap_texture_cache.find(arg);
-            if (it != bitmap_texture_cache.end())
-                texture_index = it->second;
+            auto it = bitmap_texture_cache2.find(arg);
+            if (it != bitmap_texture_cache2.end())
+                texture_index = it->second.template get<0>();
             else {
-                push_texture_image(pixmap::from_bitmap(arg));
-                texture_index = texture_image_pixmaps.size() - 1;
-                bitmap_texture_cache[arg] = texture_index;
+                pixmap pm = pixmap::from_bitmap(arg);
+                __uii::ats::idx idx = __uii::ats::push_pixmap(texture_image_pixmaps, current_atlas_index, current_atlas_x, current_atlas_y, current_atlas_max_height, pm);
+                texture_index = idx.template get<0>();
+                bitmap_texture_cache2[arg] = idx;
+                need_to_push_textures = true;
             }
 
-            pixmap pixmap = texture_image_pixmaps[texture_index];
-            recsize pixrec = pixmap.size();
-            if (siz.width() == -1) siz = recsize(pixrec.width(), siz.height());
-            if (siz.height() == -1) siz = recsize(siz.width(), pixrec.height());
-        } else if constexpr (std::same_as<T, pair<file, recsize>>) {
-            auto it = vector_texture_cache.find(arg);
-            if (it != vector_texture_cache.end())
-                texture_index = it->second;
+            resuv = bitmap_texture_cache2[arg].template get<1>();
+            ulx::size uvsiz = resuv.template get<1>();
+            if (siz.width() == -1) siz = {wfn::logical(uvsiz.width() * 2048, window_dpi), siz.height()};
+            if (siz.height() == -1) siz = {siz.width(), wfn::logical(uvsiz.height() * 2048, window_dpi)};
+        } else if constexpr (std::same_as<T, pack<file, ulx::size>>) {
+            auto it = vector_texture_cache2.find(arg);
+            if (it != vector_texture_cache2.end())
+                texture_index = it->second.template get<0>();
             else {
-                f32 width = arg.second.width();
-                f32 height = arg.second.height();
+                f32 width = arg.template get<1>().width();
+                f32 height = arg.template get<1>().height();
                 f32 physical_width = wfn::physical(width, window_dpi);
                 f32 physical_height = wfn::physical(height, window_dpi);
-
-                push_texture_image(pixmap::from_vector(arg.first, physical_width, physical_height));
-                texture_index = texture_image_pixmaps.size() - 1;
-                vector_texture_cache[arg] = texture_index;
+                
+                pixmap pm = pixmap::from_vector(arg.template get<0>(), physical_width, physical_height);
+                __uii::ats::idx idx = __uii::ats::push_pixmap(texture_image_pixmaps, current_atlas_index, current_atlas_x, current_atlas_y, current_atlas_max_height, pm);
+                texture_index = idx.template get<0>();
+                vector_texture_cache2[arg] = idx;
+                need_to_push_textures = true;
             }
 
             pixmap pixmap = texture_image_pixmaps[texture_index];
-            recsize pixrec = pixmap.size();
-            if (siz.width() == -1) siz = recsize(pixrec.width() / 2, siz.height());
-            if (siz.height() == -1) siz = recsize(siz.width(), pixrec.height() / 2);
-        } else if constexpr (std::same_as<T, pair<str, font>>) {
-            auto it = font_texture_cache.find(arg);
-            if (it != font_texture_cache.end())
-                texture_index = it->second;
+            resuv = vector_texture_cache2[arg].template get<1>();
+            ulx::size uvsiz = resuv.template get<1>();
+            if (siz.width() == -1) siz = {wfn::logical(uvsiz.width() * 1024, window_dpi), siz.height()};
+            if (siz.height() == -1) siz = {siz.width(), wfn::logical(uvsiz.height() * 1024, window_dpi)};
+        } else if constexpr (std::same_as<T, pack<str, font>>) {
+            auto it = font_texture_cache2.find(arg);
+            if (it != font_texture_cache2.end())
+                texture_index = it->second.template get<0>();
             else {
-                font font = arg.second;
+                font font = arg.template get<1>();
                 font.set_size(wfn::physical(font.get_size(), window_dpi));
-                push_texture_image(pixmap::from_text(arg.first, font));
-                texture_index = texture_image_pixmaps.size() - 1;
-                font_texture_cache[arg] = texture_index;
+                pixmap pm = pixmap::from_text(arg.template get<0>(), font);
+                __uii::ats::idx idx = __uii::ats::push_pixmap(texture_image_pixmaps, current_atlas_index, current_atlas_x, current_atlas_y, current_atlas_max_height, pm);
+                ulx::pixmap& cpm = texture_image_pixmaps[current_atlas_index];
+
+                texture_index = idx.template get<0>();
+                font_texture_cache2[arg] = idx;
+                need_to_push_textures = true;
             }
 
-            pixmap pixmap = texture_image_pixmaps[texture_index];
-            recsize pixrec = pixmap.size();
-            font font = arg.second;
-            if (siz.width() == -1) siz = {wfn::logical(pixrec.width(), window_dpi), siz.height()};
-            if (siz.height() == -1) siz = {siz.width(), wfn::logical(pixrec.height(), window_dpi)};
+            resuv = font_texture_cache2[arg].template get<1>();
+            ulx::size uvsiz = resuv.template get<1>();
+            if (siz.width() == -1) siz = {wfn::logical(uvsiz.width() * 2048, window_dpi), siz.height()};
+            if (siz.height() == -1) siz = {siz.width(), wfn::logical(uvsiz.height() * 2048, window_dpi)};
         }
     }, texture_variant);
-    siz = {siz.width(), siz.height()};
+    return resuv;
 }
 
-inline auto ulx::context::push_object(const object& object, const recsize& siz, const recpos& pos, u32& render_index, u32 texture_index) -> void {
+inline auto ulx::context::push_element(const element& object, const ulx::size& siz, const point& pos, u32& render_index, u32 texture_index, __uii::ats::uv& uv) -> void {
     color background_color = object.get_background_color();
     color border_color = object.get_border_color();
     f32 corner_radius = wfn::physical(object.get_corner_radius(), window_dpi);
@@ -119,18 +129,28 @@ inline auto ulx::context::push_object(const object& object, const recsize& siz, 
     glm::vec4 background_color_vec = __uii::vkalg::color_to_vec4(background_color);
     glm::vec4 border_color_vec = __uii::vkalg::color_to_vec4(border_color);
 
+    point uvpos = uv.get<0>();
+    f32 uvx = uvpos.x(), uvy = uvpos.y();
+    ulx::size uvsiz = uv.get<1>();
+    f32 uvw = uvsiz.width(), uvh = uvsiz.height();
+
+    glm::vec2 d{uvx + uvw, uvy};
+    glm::vec2 c{uvx,       uvy};
+    glm::vec2 b{uvx,       uvy + uvh};
+    glm::vec2 a{uvx + uvw, uvy + uvh};
+
     render_vertices.insert(render_vertices.end(), {
-        {top_right, background_color_vec, corner_radius, half_size, border_width, border_color_vec, center, {1.0f, 1.0f}, texture_index},
-        {top_left, background_color_vec, corner_radius, half_size, border_width, border_color_vec, center, {0.0f, 1.0f}, texture_index},
-        {bottom_left, background_color_vec, corner_radius, half_size, border_width, border_color_vec, center, {0.0f, 0.0f}, texture_index},
-        {bottom_right, background_color_vec, corner_radius, half_size, border_width, border_color_vec, center, {1.0f, 0.0f}, texture_index}});
+        {top_right, background_color_vec, corner_radius, half_size, border_width, border_color_vec, center, a, texture_index},
+        {top_left, background_color_vec, corner_radius, half_size, border_width, border_color_vec, center, b, texture_index},
+        {bottom_left, background_color_vec, corner_radius, half_size, border_width, border_color_vec, center, c, texture_index},
+        {bottom_right, background_color_vec, corner_radius, half_size, border_width, border_color_vec, center, d, texture_index}});
     render_indices.insert(render_indices.end(), {
         render_index, render_index + 1, render_index + 2,
         render_index + 2, render_index + 3, render_index});
     render_index += 4;
 }
 
-inline auto ulx::context::set_layout(recsize& siz, recpos& pos, const recsize& parent_size, const recpos& parent_pos, box parent_layout, f32& parent_x_offset, f32& parent_y_offset, f32 parent_padding, u8 align) -> void {
+inline auto ulx::context::set_layout(ulx::size& siz, point& pos, const ulx::size& parent_size, const point& parent_pos, box parent_layout, f32& parent_x_offset, f32& parent_y_offset, f32 parent_padding, u8 align) -> void {
     if (parent_layout == nonebox) return;
     else if (parent_layout == horbox) {
         if (align & alignleft) {
@@ -159,17 +179,17 @@ inline auto ulx::context::set_layout(recsize& siz, recpos& pos, const recsize& p
     }
 }
 
-inline auto ulx::context::event_valid(object::pressed_event pressed_event, object::released_event released_event, object::hovered_event hovered_event) -> bool {
+inline auto ulx::context::event_valid(element::pressed_event pressed_event, element::released_event released_event, element::hovered_event hovered_event) -> bool {
     return pressed_event.valid() || released_event.valid() || hovered_event.valid();
 }
 
-inline auto ulx::context::push_objects(vec<object>& objects, u32& render_index, const recsize& parent_size, const recpos& parent_pos, box parent_layout, f32& x_offset, f32& y_offset, f32 parent_padding, u8 align) -> void {
+inline auto ulx::context::push_elements(vec<element>& objects, u32& render_index, const ulx::size& parent_size, const point& parent_pos, box parent_layout, f32& x_offset, f32& y_offset, f32 parent_padding, u8 align) -> void {
     if (objects.empty()) return;
     for (auto& obj : objects) {
-        recsize siz = obj.get_size();
-        recpos pos = obj.get_pos();
+        ulx::size siz = obj.get_size();
+        point pos = obj.get_pos();
         u32 texture_index;
-        update_texture_images(siz, obj, texture_index);
+        __uii::ats::uv uv = update_texture_images(siz, obj, texture_index);
         if (siz.width() == -2) siz = {parent_size.width(), siz.height()};
         if (siz.height() == -2) siz = {siz.width(), parent_size.height()};
         pos = {pos.x() + parent_pos.x(), pos.y() + parent_pos.y()};
@@ -179,9 +199,9 @@ inline auto ulx::context::push_objects(vec<object>& objects, u32& render_index, 
             POINT pt; GetCursorPos(&pt);
             HWND hwnd = WindowFromPoint(pt);
 
-            object::pressed_event pressed_event = obj.get_pressed_event();
-            object::released_event released_event = obj.get_released_event();
-            object::hovered_event hovered_event = obj.get_hovered_event();
+            element::pressed_event pressed_event = obj.get_pressed_event();
+            element::released_event released_event = obj.get_released_event();
+            element::hovered_event hovered_event = obj.get_hovered_event();
             if (hwnd == window_hwnd || hwnd == snap_trigger_hwnd) {
                 ScreenToClient(window_hwnd, &pt);
                 if (event_valid(pressed_event, released_event, hovered_event) &&
@@ -207,12 +227,12 @@ inline auto ulx::context::push_objects(vec<object>& objects, u32& render_index, 
                 if (released_event.valid()) released_event(*this, obj);
             }
 
-            push_object(obj, siz, pos, render_index, texture_index);
+            push_element(obj, siz, pos, render_index, texture_index, uv);
         }
 
-        vec<object> child_objects = obj.get_objects();
+        vec<element> child_objects = obj.get_objects();
         f32 x_offset = 0; f32 y_offset = 0;
-        push_objects(child_objects, render_index, siz, pos, obj.get_layout(), x_offset, y_offset, obj.get_padding(), obj.get_alignment());
+        push_elements(child_objects, render_index, siz, pos, obj.get_layout(), x_offset, y_offset, obj.get_padding(), obj.get_alignment());
     }
 }
 
@@ -220,12 +240,12 @@ inline auto ulx::context::update_scene_objects() -> void {
     u32 render_index = 0;
     render_vertices.clear(); render_indices.clear();
     current_render_scene = renderer(*this);
-    vec<object> objects = current_render_scene.get_objects();
+    vec<element> objects = current_render_scene.get_objects();
     current_background_color = current_render_scene.get_background_color();
 
     curs = resetcur;
     f32 x_offset = 0, y_offset = 0;
-    push_objects(objects, render_index, 
+    push_elements(objects, render_index, 
         {wfn::logical(window_width, window_dpi), wfn::logical(window_height, window_dpi)},
         {0, 0}, current_render_scene.get_layout(), x_offset, y_offset,
         current_render_scene.get_padding(), current_render_scene.get_alignment()
@@ -239,7 +259,7 @@ inline auto ulx::context::set_tick(const tick_callback& callback) -> void { this
 inline auto ulx::context::dpi() const -> UINT { return window_dpi; }
 inline auto ulx::context::set_delay(u64 delay) -> void { this->tick_delay = delay; }
 inline auto ulx::context::set_cur(cursor c) -> void { this->curs = c; }
-inline auto ulx::context::cur_pos() const -> recpos {
+inline auto ulx::context::cur_pos() const -> point {
     POINT pt; GetCursorPos(&pt);
     ScreenToClient(window_hwnd, &pt);
     return {wfn::logical(pt.x), wfn::logical(pt.y)};
@@ -342,8 +362,8 @@ inline auto ulx::context::win32_process(HWND hwnd, UINT message, WPARAM wparam, 
             auto* ctx = reinterpret_cast<context*>(GetWindowLongPtrW(hwnd, GWLP_USERDATA));
             if (!ctx) return DefWindowProcW(hwnd, message, wparam, lparam);
 
-            recsize min_size = ctx->window_min_size;
-            recsize max_size = ctx->window_max_size;
+            ulx::size min_size = ctx->window_min_size;
+            ulx::size max_size = ctx->window_max_size;
             
             MINMAXINFO* minmax_info = reinterpret_cast<MINMAXINFO*>(lparam);
             minmax_info->ptMinTrackSize.x = min_size.width();
@@ -415,8 +435,8 @@ inline auto ulx::context::create_window(const wininfo& window_info, const appinf
     pathstr icon_file_path_str = icon_file_path.path();
     wstr window_wide_icon = wstr(icon_file_path_str.begin(), icon_file_path_str.end());
 
-    recsize window_size = window_info.get_initial_window_size();
-    recpos window_pos = window_info.get_initial_window_pos();
+    ulx::size window_size = window_info.get_initial_window_size();
+    point window_pos = window_info.get_initial_window_pos();
 
     window_min_size = window_info.get_min_window_size();
     window_max_size = window_info.get_max_window_size();
@@ -513,15 +533,15 @@ inline auto ulx::context::exec() -> int {
     return 0;
 }
 
-inline auto ulx::context::set_min(const recsize& size) -> void { window_min_size = size; }
-inline auto ulx::context::set_max(const recsize& size) -> void { window_max_size = size; }
+inline auto ulx::context::set_min(const ulx::size& size) -> void { window_min_size = size; }
+inline auto ulx::context::set_max(const ulx::size& size) -> void { window_max_size = size; }
 inline auto ulx::context::show() const -> void { ShowWindow(window_hwnd, SW_SHOW); UpdateWindow(window_hwnd); }
 inline auto ulx::context::hide() const -> void { ShowWindow(window_hwnd, SW_HIDE); UpdateWindow(window_hwnd); }
 inline auto ulx::context::exit() const -> void { PostMessageW(window_hwnd, WM_CLOSE, 0, 0); }
-inline auto ulx::context::size() const -> recsize { return {wfn::logical(window_width), wfn::logical(window_height)}; }
+inline auto ulx::context::size() const -> ulx::size { return {wfn::logical(window_width), wfn::logical(window_height)}; }
 inline auto ulx::context::width() const -> f32 { return wfn::logical(window_width); }
 inline auto ulx::context::height() const -> f32 { return wfn::logical(window_height); }
-inline auto ulx::context::pos() const -> recpos {
+inline auto ulx::context::pos() const -> point {
     RECT window_rect{}; GetWindowRect(window_hwnd, &window_rect);
     return {wfn::logical(window_rect.left), wfn::logical(window_rect.top)};
 }
@@ -529,13 +549,13 @@ inline auto ulx::context::x() const -> f32 { return pos().x(); }
 inline auto ulx::context::y() const -> f32 { return pos().y(); }
 
 
-inline auto ulx::context::mov(const recpos& pos) -> void {
+inline auto ulx::context::mov(const point& pos) -> void {
     i32 physical_x = wfn::physical(pos.x());
     i32 physical_y = wfn::physical(pos.y());
     MoveWindow(window_hwnd, physical_x, physical_y, window_width, window_height, TRUE);
 }
 
-inline auto ulx::context::resize(const recsize& size) -> void {
+inline auto ulx::context::resize(const ulx::size& size) -> void {
     u32 physical_width = wfn::physical(size.width());
     u32 physical_height = wfn::physical(size.height());
     MoveWindow(window_hwnd, x(), y(), physical_width, physical_height, TRUE);
@@ -1206,13 +1226,14 @@ inline auto ulx::context::render() -> void {
                     vkDestroyFramebuffer(logical_device, framebuffer, nullptr);
                 for (auto& imageview : pending_image_views[jndex])
                     vkDestroyImageView(logical_device, imageview, nullptr);
-                    
+
                 VkSwapchainKHR current_swapchain_handle = pending_swapchains[jndex];
-                    vkDestroySwapchainKHR(logical_device, current_swapchain_handle, nullptr);
+                vkDestroySwapchainKHR(logical_device, current_swapchain_handle, nullptr);
                 
                 for (auto& semaphore : pending_semaphores[jndex])
                     vkDestroySemaphore(logical_device, semaphore, nullptr);
             }
+            
             pending_framebuffers.clear();
             pending_image_views.clear();
             pending_swapchains.clear();
@@ -1396,7 +1417,7 @@ inline auto ulx::context::map_texture_images() -> void {
     for (u64 index = 0; index < texture_image_pixmaps.size(); index++) {
         VkImage image = texture_images[index].image;
         pixmap pixmap = texture_image_pixmaps[index];
-        recsize size = pixmap.size();
+        ulx::size size = pixmap.size();
 
         memcpy(reinterpret_cast<char*>(mapped) + staging_offset, pixmap.pixels().data(), pixmap.pixel_size());
         offsets[index] = staging_offset;
@@ -1413,7 +1434,7 @@ inline auto ulx::context::map_texture_images() -> void {
 inline auto ulx::context::create_texture_image(ulx::u64 index) -> VkMemoryRequirements {
     VkImage& texture = texture_images[index].image;
     pixmap pixmap = texture_image_pixmaps[index];
-    recsize size = pixmap.size();
+    ulx::size size = pixmap.size();
 
     VkImageCreateInfo image_create_info{};
     image_create_info.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
@@ -1535,21 +1556,34 @@ inline auto ulx::context::create_texture_images() -> VkDeviceSize {
 inline auto ulx::context::destroy_vulkan_objects() -> void {
     vkDeviceWaitIdle(logical_device);
 
-    vkDestroyDescriptorUpdateTemplate(logical_device, descriptor_update_template, nullptr);
+    for (u64 jndex = 0; jndex < pending_framebuffers.size(); jndex++) {
+        for (auto& framebuffer : pending_framebuffers[jndex])
+            vkDestroyFramebuffer(logical_device, framebuffer, nullptr);
+        for (auto& imageview : pending_image_views[jndex])
+            vkDestroyImageView(logical_device, imageview, nullptr);
+
+        VkSwapchainKHR current_swapchain_handle = pending_swapchains[jndex];
+        vkDestroySwapchainKHR(logical_device, current_swapchain_handle, nullptr);
+        
+        for (auto& semaphore : pending_semaphores[jndex])
+            vkDestroySemaphore(logical_device, semaphore, nullptr);
+    }
+
+    vkDestroyDescriptorUpdateTemplate(logical_device, descriptor_update_template, VK_NULL_HANDLE);
     destroy_swapchain();
-    vkDestroySampler(logical_device, texture_image_sampler, nullptr);
+    vkDestroySampler(logical_device, texture_image_sampler, VK_NULL_HANDLE);
     for (auto& image : texture_images)
         image.release(logical_device);
     vkFreeMemory(logical_device, texture_image_memory, VK_NULL_HANDLE);
     for (u32 index = 0; index < max_frames_in_flight; index++)
-        vkDestroyDescriptorPool(logical_device, descriptor_pools[index], nullptr);
+        vkDestroyDescriptorPool(logical_device, descriptor_pools[index], VK_NULL_HANDLE);
 
     vkDestroyDescriptorSetLayout(logical_device, descriptor_set_layout, VK_NULL_HANDLE);
     index_buffer.release(logical_device);
     vertex_buffer.release(logical_device);
     texture_buffer.release(logical_device);
     for (u32 i = 0; i < render_finished_semaphores.size(); i++)
-        vkDestroySemaphore(logical_device, render_finished_semaphores[i], nullptr);
+        vkDestroySemaphore(logical_device, render_finished_semaphores[i], VK_NULL_HANDLE);
     for (u64 index = 0; index < max_frames_in_flight; index++) {
         vkDestroySemaphore(logical_device, image_available_semaphores[index], VK_NULL_HANDLE);
         vkDestroyFence(logical_device, in_flight_fences[index], VK_NULL_HANDLE);
@@ -1566,7 +1600,7 @@ inline auto ulx::context::destroy_vulkan_objects() -> void {
 
 inline auto ulx::context::create_vulkan_objects(const appinfo& application_info, const renderinfo& render_info) -> void {
     renderer = render_info.get_render_callback();
-    texture_image_pixmaps = { __uii::vkalg::empty_pixmap() };
+    texture_image_pixmaps = { __uii::vkalg::empty_pixmap(), pixmap(2048, 2048) };
     cache_file_path = application_info.get_pipeline_cache_file_path().path();
     max_texture_count = render_info.get_max_texture_count();
     application_id = application_info.get_application_id();

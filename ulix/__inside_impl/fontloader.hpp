@@ -4,17 +4,12 @@
 #include "../file.hpp"
 #include "../types.hpp"
 #include "../font.hpp"
+#include "../pack.hpp"
 #include "../__require_libraries/skarupke/flat_hash_map.hpp"
 #include "../__require_libraries/stb_truetype/stb_truetype.hpp"
-#include <functional>
 
 namespace __uii::font {
-    struct glyph_key {
-        ulx::u32 font_id;
-        ulx::u32 codepoint;
-        ulx::u32 size;
-    };
-
+    using glyph_key = ulx::pack<ulx::u32, ulx::u32, ulx::u32>;
     struct glyph_value {
         ulx::i32 width, height;
         ulx::i32 x_offset, y_offset;
@@ -22,12 +17,7 @@ namespace __uii::font {
         ulx::bytes bitmap;
     };
 
-    struct text_layout_key {
-        ulx::str text;
-        ulx::u32 font_id;
-        ulx::u32 size;
-    };
-
+    using text_layout_key = ulx::pack<ulx::str, ulx::u32, ulx::u32>;
     struct text_layout {
         struct glyph_position {
             ulx::u32 codepoint;
@@ -40,48 +30,11 @@ namespace __uii::font {
         ulx::i32 baseline_y;
         ulx::vec<glyph_position> glyphs;
     };
-}
-
-template<> struct std::equal_to<__uii::font::glyph_key> {
-    auto operator()(const __uii::font::glyph_key& a, const __uii::font::glyph_key& b) const -> bool {
-        return a.font_id == b.font_id &&
-                a.codepoint == b.codepoint &&
-                a.size == b.size;
-    }
-};
-
-template<> struct std::equal_to<__uii::font::text_layout_key> {
-    auto operator()(const __uii::font::text_layout_key& a, const __uii::font::text_layout_key& b) const -> bool {
-        return a.text == b.text &&
-                a.font_id == b.font_id &&
-                a.size == b.size;
-    }
-};
-
-template<> struct std::hash<__uii::font::glyph_key> {
-    ulx::u64 operator()(const __uii::font::glyph_key& k) const noexcept {
-        ulx::u64 h = k.font_id;
-        h ^= k.codepoint << 1;
-        h ^= k.size << 2;
-        return h;
-    }
-};
-
-template<> struct std::hash<__uii::font::text_layout_key> {
-    ulx::u64 operator()(const __uii::font::text_layout_key& k) const noexcept {
-        ulx::u64 h = std::hash<ulx::str>{}(k.text);
-        h ^= k.font_id << 1;
-        h ^= k.size << 2;
-        return h;
-    }
-};
-
-
-namespace __uii::font {
-    inline static ska::flat_hash_map<ulx::str, ulx::u32> font_name_to_id;
+    
+    inline static ulx::hashmap<ulx::str, ulx::u32> font_name_to_id;
     inline static std::vector<ulx::str> font_id_to_name;
     inline static ulx::u32 next_font_id = 0;
-    inline static ska::flat_hash_map<ulx::font, ulx::i32> font_to_max_h;
+    inline static ulx::hashmap<ulx::font, ulx::i32> font_to_max_h;
 
     struct font_data {
         ulx::bytes bytes;
@@ -99,7 +52,7 @@ namespace __uii::font {
         return id;
     }
 
-    inline static ska::flat_hash_map<ulx::str, font_data> font_cache;
+    inline static ulx::hashmap<ulx::str, font_data> font_cache;
     inline static auto load(const ulx::font& font) -> stbtt_fontinfo* {
         ulx::str key = font.get_name();
 

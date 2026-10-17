@@ -6,8 +6,8 @@
 #include "font.hpp"
 #include "log.hpp"
 #include "box.hpp"
-#include "recpos.hpp"
-#include "recsize.hpp"
+#include "point.hpp"
+#include "size.hpp"
 #include "color.hpp"
 #include "align.hpp"
 #include "requires.hpp"
@@ -29,8 +29,8 @@ namespace ulx {
     };
 
     struct geom {
-        ulx::recsize size = ulx::recsize(0, 0);
-        ulx::recpos pos = ulx::recpos(0, 0);
+        ulx::size size = ulx::size(0, 0);
+        ulx::point pos = ulx::point(0, 0);
     };
 
     struct layoutbox {
@@ -40,28 +40,28 @@ namespace ulx {
     };
 
     class context;
-    class object {
+    class element {
         public:
             using texture_variant = std::variant<
                 std::monostate,                     // No texture
                 ulx::file,                          // Bitmap
-                ulx::pair<ulx::file, ulx::recsize>, // Vector
-                ulx::pair<ulx::str, ulx::font>>;    // Text
+                ulx::pack<ulx::file, ulx::size>, // Vector
+                ulx::pack<ulx::str, ulx::font>>;    // Text
 
-            using mouse_event = ulx::callback<void(context&, object&)>;
+            using mouse_event = ulx::callback<void(context&, element&)>;
             using released_event = mouse_event;
             using pressed_event = mouse_event;
             using hovered_event = mouse_event;
-            using callback = ulx::callback<void(object&)>;
+            using callback = ulx::callback<void(element&)>;
 
         private:
             ulx::color background_color = ulx::color(255, 255, 255, 255);
             ulx::color border_color = ulx::color(255, 255, 255, 255);
             ulx::f32 corner_radius = 16.0f;
             ulx::f32 border_width = 3.0f;
-            ulx::recpos p = ulx::recpos(0, 0);
-            ulx::recsize siz = ulx::recsize(200, 200);
-            ulx::vec<ulx::object> objects;
+            ulx::point p = ulx::point(0, 0);
+            ulx::size siz = ulx::size(200, 200);
+            ulx::vec<ulx::element> objects;
             ulx::u8 alignment = ulx::align::center;
             ulx::f32 paddin = 5;
             ulx::box bx = ulx::box::nonebox;
@@ -73,21 +73,21 @@ namespace ulx {
             ulx::cursor curs = ulx::cursor::resetcur;
 
         public:
-            inline constexpr object() = default;
+            inline constexpr element() = default;
 
             template<typename S>
                 requires ulx::expect<S, ulx::strvw>
-            inline constexpr object(S&& id): id_(std::forward<S>(id)) {}
+            inline constexpr element(S&& id): id_(std::forward<S>(id)) {}
 
         public:
             template<typename S>
                 requires ulx::expect<S, ulx::strvw>
-            inline constexpr auto id(S&& id) -> object& {
+            inline constexpr auto id(S&& id) -> element& {
                 this->id_ = std::forward<S>(id);
                 return *this;
             }
 
-            inline constexpr auto style(const ulx::style& style) -> object& {
+            inline constexpr auto style(const ulx::style& style) -> element& {
                 background_color = style.background;
                 border_color = style.border;
                 corner_radius = style.corner;
@@ -95,101 +95,101 @@ namespace ulx {
                 return *this;
             }
 
-            inline constexpr auto back(const ulx::color& color) -> object& {
+            inline constexpr auto back(const ulx::color& color) -> element& {
                 background_color = color;
                 return *this;
             }
 
-            inline constexpr auto border(const ulx::color& color) -> object& {
+            inline constexpr auto border(const ulx::color& color) -> element& {
                 border_color = color;
                 return *this;
             }
 
-            inline constexpr auto corner(ulx::f32 radius) -> object& {
+            inline constexpr auto corner(ulx::f32 radius) -> element& {
                 corner_radius = radius;
                 return *this;
             }
 
-            inline constexpr auto border(ulx::f32 width) -> object& {
+            inline constexpr auto border(ulx::f32 width) -> element& {
                 border_width = width;
                 return *this;
             }
 
-            inline constexpr auto size(const ulx::recsize& siz) -> object& {
+            inline constexpr auto size(const ulx::size& siz) -> element& {
                 this->siz = siz;
                 return *this;
             }
 
-            inline constexpr auto pos(const ulx::recpos& p) -> object& {
-                this->p = ulx::recpos(p.x(), p.y());
+            inline constexpr auto pos(const ulx::point& p) -> element& {
+                this->p = ulx::point(p.x(), p.y());
                 return *this;
             }
 
-            inline constexpr auto child(const object& obj) -> object& {
+            inline constexpr auto child(const element& obj) -> element& {
                 objects.push_back(obj);
                 return *this;
             }
 
-            inline constexpr auto texture(const ulx::file& bitmap_or_svg) -> object& {
+            inline constexpr auto texture(const ulx::file& bitmap_or_svg) -> element& {
                 if (!bitmap_or_svg.exists()) ulx::log::err("{} file {} doesn't exists", bitmap_or_svg.path());
                 texturev = bitmap_or_svg;
                 return *this;
             }
 
-            inline constexpr auto texture(const ulx::file& svg, const ulx::recsize& size) -> object& {
+            inline constexpr auto texture(const ulx::file& svg, const ulx::size& size) -> element& {
                 if (!svg.exists()) ulx::log::err("SVG file {} doesn't exists", svg.path());
-                texturev = std::make_pair(svg, size);
+                texturev = ulx::pack<file, ulx::size>(svg, size);
                 return *this;
             }
 
-            inline constexpr auto texture(const ulx::str& text, const ulx::font& font = ulx::font()) -> object& {
-                texturev = std::make_pair(text, font);
+            inline constexpr auto texture(const ulx::str& text, const ulx::font& font = ulx::font()) -> element& {
+                texturev = ulx::pack<str, ulx::font>(text, font);
                 return *this;
             }
 
-            inline constexpr auto align(ulx::u8 alignment) -> object& {
+            inline constexpr auto align(ulx::u8 alignment) -> element& {
                 this->alignment = alignment;
                 return *this;
             }
 
-            inline constexpr auto pad(ulx::f32 padding) -> object& {
+            inline constexpr auto pad(ulx::f32 padding) -> element& {
                 paddin = padding;
                 return *this;
             }
 
-            inline constexpr auto box(ulx::box bx) -> object& {
+            inline constexpr auto box(ulx::box bx) -> element& {
                 this->bx = bx;
                 return *this;
             }
 
             template<typename R>
                 requires ulx::expect<R, released_event>
-            inline constexpr auto released(R&& event) -> object& {
+            inline constexpr auto released(R&& event) -> element& {
                 released_e = std::forward<R>(event);
                 return *this;
             }
 
             template<typename P>
                 requires ulx::expect<P, pressed_event>
-            inline constexpr auto pressed(P&& event) -> object& {
+            inline constexpr auto pressed(P&& event) -> element& {
                 pressed_e = std::forward<P>(event);
                 return *this;
             }
 
             template<typename H>
                 requires ulx::expect<H, hovered_event>
-            inline constexpr auto hovered(H&& event) -> object& {
+            inline constexpr auto hovered(H&& event) -> element& {
                 hovered_e = std::forward<H>(event);
                 return *this;
             }
 
-            inline constexpr auto geom(const geom& geom) -> object& {
-                p = ulx::recpos(geom.pos.x(), geom.pos.y() + 0.5);
+            inline constexpr auto geom(const geom& geom) -> element& {
+                p = ulx::point(geom.pos.x(), geom.pos.y() + 0.5);
                 siz = geom.size;
                 return *this;
             }
 
-            inline constexpr auto layout(const layoutbox& layout) -> object& {
+            inline constexpr auto layout(const layoutbox& layout) -> element& {
                 bx = layout.box;
                 paddin = layout.padding;
                 alignment = layout.align;
@@ -198,14 +198,14 @@ namespace ulx {
 
             template<typename C>
                 requires ulx::expect<C, callback>
-            inline constexpr auto call(C&& fn) -> object& {
+            inline constexpr auto call(C&& fn) -> element& {
                 std::forward<C>(fn)(*this);
                 return *this;
             }
 
             template<typename C>
                 requires ulx::expect<C, callback>
-            inline constexpr auto when(bool cond, C&& fn) -> object& {
+            inline constexpr auto when(bool cond, C&& fn) -> element& {
                 if (cond)
                     std::forward<C>(fn)(*this);
                 return *this;
@@ -214,7 +214,7 @@ namespace ulx {
             template<typename C, typename CE>
                 requires ulx::expect<C, callback> &&
                          ulx::expect<CE, callback>
-            inline constexpr auto when(bool cond, C&& fn, CE&& else_fn) -> object& {
+            inline constexpr auto when(bool cond, C&& fn, CE&& else_fn) -> element& {
                 if (cond)
                     std::forward<C>(fn)(*this);
                 else
@@ -222,7 +222,7 @@ namespace ulx {
                 return *this;
             }
 
-            inline constexpr auto cur(ulx::cursor cursor) -> object& {
+            inline constexpr auto cur(ulx::cursor cursor) -> element& {
                 curs = cursor;
                 return *this;
             }
@@ -232,9 +232,9 @@ namespace ulx {
             inline constexpr auto get_border_color() const -> const ulx::color& { return border_color; }
             inline constexpr auto get_corner_radius() const -> ulx::f32 { return corner_radius; }
             inline constexpr auto get_border_width() const -> ulx::f32 { return border_width; }
-            inline constexpr auto get_size() const -> const ulx::recsize& { return siz; }
-            inline constexpr auto get_pos() const -> const ulx::recpos& { return p; }
-            inline constexpr auto get_objects() const -> const ulx::vec<ulx::object>& { return objects; }
+            inline constexpr auto get_size() const -> const ulx::size& { return siz; }
+            inline constexpr auto get_pos() const -> const ulx::point& { return p; }
+            inline constexpr auto get_objects() const -> const ulx::vec<ulx::element>& { return objects; }
             inline constexpr auto get_texture() const -> const texture_variant& { return texturev; }
             inline constexpr auto get_alignment() const -> ulx::u8 { return alignment; }
             inline constexpr auto get_padding() const -> ulx::f32 { return paddin; }
@@ -246,17 +246,17 @@ namespace ulx {
             inline constexpr auto get_cursor() const -> ulx::cursor { return curs; }
 
         public:
-            inline static constexpr auto box() -> object {
-                return object().size(ulx::recsize(0, 0));
+            inline static constexpr auto box() -> element {
+                return element().size(ulx::size(0, 0));
             }
 
             template<typename F>
                 requires ulx::expect<F, ulx::font>
-            inline static constexpr auto text(const ulx::str& txt, F&& font, ulx::align align = ulx::align::alignbottom) -> object {
+            inline static constexpr auto text(const ulx::str& txt, F&& font, ulx::align align = ulx::align::alignbottom) -> element {
                 ulx::i32 max_h = __uii::font::max_height_of(font);
-                object obj = box().pad(0)
+                element obj = box().pad(0)
                     .align(ulx::alignleft | align)
-                    .box(ulx::horbox).size(ulx::recsize(0, max_h));
+                    .box(ulx::horbox).size(ulx::size(0, max_h));
 
                 ulx::str glyph_str;
                 for (ulx::u64 i = 0; i < txt.size(); ) {
@@ -274,9 +274,9 @@ namespace ulx {
                         glyph_str += static_cast<char>(0x80 | (cp & 0x3F));
                     }
 
-                    obj.child(object(glyph_str)
+                    obj.child(element(glyph_str)
                         .texture(glyph_str, font)
-                        .size(ulx::recsize::autos())
+                        .size(ulx::size::autos())
                         .border(0).corner(0).back(ulx::color::empty())
                     );
                 }
@@ -284,22 +284,22 @@ namespace ulx {
                 return obj;
             }
 
-            inline static constexpr auto text(const ulx::str& txt, ulx::align align = ulx::align::alignbottom) -> object {
+            inline static constexpr auto text(const ulx::str& txt, ulx::align align = ulx::align::alignbottom) -> element {
                 return text(txt, ulx::font(), align);
             }
 
             template<typename G>
                 requires ulx::expect<G, ulx::geom>
-            inline static constexpr auto unvisible(ulx::strvw id, G&& geom) -> object {
-                return object(id)
+            inline static constexpr auto unvisible(ulx::strvw id, G&& geom) -> element {
+                return element(id)
                     .style({
                         .background = ulx::color::empty(),
                         .corner = 0, .borderw = 0
                     }).geom(std::forward<G>(geom));
             }
 
-            inline static constexpr auto unbordered(ulx::strvw id) -> object {
-                return object(id).corner(0).border(0);
+            inline static constexpr auto unbordered(ulx::strvw id) -> element {
+                return element(id).corner(0).border(0);
             }
     };
 }

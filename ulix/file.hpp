@@ -1,5 +1,4 @@
 #pragma once
-
 #include "requires.hpp"
 #include "stablestr.hpp"
 #include "types.hpp"
@@ -40,14 +39,3 @@ namespace ulx {
     };
 }
 
-template<> struct std::hash<ulx::file> {
-    size_t operator()(const ulx::file& f) const noexcept {
-        return std::hash<ulx::stablestr<260>>{}(f.path());
-    }
-};
-
-template<> struct std::equal_to<ulx::file> {
-    bool operator()(const ulx::file& a, const ulx::file& b) const noexcept {
-        return a == b;
-    }
-};

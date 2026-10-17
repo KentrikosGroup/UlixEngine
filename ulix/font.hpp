@@ -12,7 +12,7 @@ namespace ulx {
         public:
             inline font(
                 const str& name = "arial.ttf", u32 size = 32,
-                color color = ulx::color(255, 255, 255)
+                color color = {255, 255, 255}
             ):
                 font_name(name), font_size(size),
                 font_color(color)
@@ -62,20 +62,3 @@ namespace ulx {
             }
     };
 }
-
-template<> struct std::hash<ulx::font> {
-    size_t operator()(const ulx::font& f) const noexcept {
-        size_t h = hash<string>{}(f.get_name());
-        h ^= hash<ulx::f32>{}(f.get_size()) + 0x9e3779b9 + (h<<6) + (h>>2);
-        h ^= hash<ulx::color>{}(f.get_color()) + 0x9e3779b9 + (h<<6) + (h>>2);
-        return h;
-    }
-};
-
-template<> struct std::equal_to<ulx::font> {
-    bool operator()(const ulx::font& a, const ulx::font& b) const noexcept {
-        return a.get_name() == b.get_name() &&
-               a.get_size() == b.get_size() &&
-               a.get_color() == b.get_color();
-    }
-};

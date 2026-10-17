@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../object.hpp"
+#include "../element.hpp"
 #include "../file.hpp"
 #include "../font.hpp"
 #include "../pixmap.hpp"
@@ -9,32 +9,25 @@
 #include "../wininfo.hpp"
 #include "../__inside_impl/vulkan_classes.hpp"
 #include "../__inside_impl/vulkan_shader_data_classes.hpp"
+#include "../__inside_impl/atlaspusher.hpp"
 #include "../scene.hpp"
 #include "../cursor.hpp"
-
-
-template<> struct std::hash<ulx::pair<ulx::file, ulx::recsize>> {
-    ulx::u64 operator()(const pair<ulx::file, ulx::recsize>& p) const noexcept {
-        ulx::u64 h = std::hash<ulx::file>{}(p.first);
-        h ^= std::hash<ulx::recsize>{}(p.second) + 0x9e3779b9 + (h << 6) + (h >> 2);
-        return h;
-    }
-};
-template<> struct std::hash<ulx::pair<std::string, ulx::font>> {
-    ulx::u64 operator()(const pair<std::string, ulx::font>& p) const noexcept {
-        ulx::u64 h = std::hash<std::string>{}(p.first);
-        h ^= std::hash<ulx::font>{}(p.second) + 0x9e3779b9 + (h << 6) + (h >> 2);
-        return h;
-    }
-};
 
 namespace ulx {
     class context {
         /* texture caches */
         private:
-            hashmap<file, u32> bitmap_texture_cache;
-            hashmap<pair<file, recsize>, u32> vector_texture_cache;
-            hashmap<pair<str, font>, u32> font_texture_cache;
+            // hashmap<file, u32> bitmap_texture_cache;
+            // hashmap<pack<file, size>, u32> vector_texture_cache;
+            // hashmap<pack<str, font>, u32> font_texture_cache;
+
+            hashmap<file, __uii::ats::idx> bitmap_texture_cache2;
+            hashmap<pack<file, size>, __uii::ats::idx> vector_texture_cache2;
+            hashmap<pack<str, font>, __uii::ats::idx> font_texture_cache2;
+            
+            u32 current_atlas_index = 1;
+            u32 current_atlas_x = 0, current_atlas_y = 0;
+            u32 current_atlas_max_height = 0;
         
         /* tick callback & configs */
         public:
@@ -62,18 +55,18 @@ namespace ulx {
         private:
             auto update_push_constant() -> void;
             auto update_scene_objects() -> void;
-            auto push_objects(vec<object>& objects, u32& render_index, const recsize& parent_size, 
-                const recpos& parent_pos, box parent_layout, f32& x_offset, f32& y_offset, 
+            auto push_elements(vec<element>& objects, u32& render_index, const size& parent_size, 
+                const point& parent_pos, box parent_layout, f32& x_offset, f32& y_offset, 
                 f32 parent_padding, u8 align) -> void;
-            auto push_object(const object& object, const recsize& siz, const recpos& pos, 
-                u32& render_index, u32 texture_index) -> void;
-            auto set_layout(recsize& siz, recpos& pos, const recsize& parent_size, const recpos& parent_pos, 
+            auto push_element(const element& object, const size& siz, const point& pos, 
+                u32& render_index, u32 texture_index, __uii::ats::uv& uv) -> void;
+            auto set_layout(size& siz, point& pos, const size& parent_size, const point& parent_pos, 
                 box parent_layout, f32& parent_x_offset, f32& parent_y_offset, 
                 f32 parent_padding, u8 align) -> void;
             auto event_valid(
-                object::pressed_event pressed_event, 
-                object::released_event released_event, 
-                object::hovered_event hovered_event) -> bool;
+                element::pressed_event pressed_event, 
+                element::released_event released_event, 
+                element::hovered_event hovered_event) -> bool;
 
         /* window handle & window configs & native window states */ 
         private:
@@ -82,7 +75,7 @@ namespace ulx {
             HWND window_hwnd = nullptr, snap_trigger_hwnd = nullptr;
             bool window_titled = false, window_resizable = false;
             u32 window_width = 0, window_height = 0;
-            recsize window_min_size, window_max_size;
+            size window_min_size, window_max_size;
             
             u32 vtitlebar_height, vclosebtn_width, vminbtn_width, vmaxbtn_width;
             bool window_max = false, window_min = false, window_restore = false;
@@ -96,20 +89,20 @@ namespace ulx {
             auto show() const -> void;
             auto hide() const -> void;
             auto exit() const -> void;
-            auto size() const -> recsize;
-            auto pos() const -> recpos;
+            auto size() const -> ulx::size;
+            auto pos() const -> point;
             auto width() const -> f32;
             auto height() const -> f32;
             auto x() const -> f32;
             auto y() const -> f32;
-            auto resize(const recsize& size) -> void;
-            auto mov(const recpos& pos) -> void;
-            auto set_min(const recsize& size) -> void;
-            auto set_max(const recsize& size) -> void;
+            auto resize(const ulx::size& size) -> void;
+            auto mov(const point& pos) -> void;
+            auto set_min(const ulx::size& size) -> void;
+            auto set_max(const ulx::size& size) -> void;
             auto set_tick(const tick_callback& callback) -> void;
             auto set_delay(u64 delay) -> void;
             auto set_cur(cursor cur) -> void;
-            auto cur_pos() const -> recpos;
+            auto cur_pos() const -> point;
             auto pressing() const -> bool;
             auto max() -> void;
             auto min() -> void;
@@ -162,7 +155,7 @@ namespace ulx {
             u32 max_texture_count;
             stablestr<> application_id;
             u32 application_version;
-            bool need_to_push_textures = false;
+            bool need_to_push_textures = true;
             u32 max_frames_in_flight, current_frame = 0;
             present_mode pmode;
         private:
@@ -205,7 +198,7 @@ namespace ulx {
             auto push_texture_images() -> void;
             auto recreate_texture_buffer() -> void;
             auto create_texture_images() -> VkDeviceSize;
-            auto update_texture_images(recsize& siz, const object& object, u32& texture_index) -> void;
+            auto update_texture_images(ulx::size& siz, const element& object, u32& texture_index) -> __uii::ats::uv;
             auto create_descriptor_update_template() -> void;
             auto update_texture_descriptors() -> void;
             auto create_render_finished_semaphores() -> void;

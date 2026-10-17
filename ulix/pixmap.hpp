@@ -4,7 +4,7 @@
 #include "__inside_impl/fontloader.hpp"
 #include "file.hpp"
 #include "log.hpp"
-#include "recsize.hpp"
+#include "size.hpp"
 #include "stablestr.hpp"
 #include "types.hpp"
 #include <cassert>
@@ -28,10 +28,11 @@ namespace ulx {
             vec<u8> texture_pixels;
     
         public:
-            pixmap() = default;
-            pixmap(vec<u8> pixels, u32 width, u32 height) : texture_pixels(pixels), texture_width(width), texture_height(height), texture_size(pixels.size()) {}
-    
-            inline static auto from_bitmap(const file& image_file) -> pixmap {
+            inline constexpr pixmap() = default;
+            inline constexpr pixmap(vec<u8> pixels, u32 width, u32 height) : texture_pixels(pixels), texture_width(width), texture_height(height), texture_size(pixels.size()) {}
+            inline constexpr pixmap(u32 width, u32 height) : texture_pixels(width * height * 4), texture_width(width), texture_height(height), texture_size(width * height * 4) {}
+            
+            inline constexpr static auto from_bitmap(const file& image_file) -> pixmap {
                 stablestr<260> file_path = image_file.path();
                 i32 texture_width = 0, texture_height = 0, texture_channels = 0;
     
@@ -43,7 +44,7 @@ namespace ulx {
                 return pixmap(texture_pixels, texture_width, texture_height);
             }
     
-            inline static auto from_vector(const file& image_file, u32 width, u32 height) -> pixmap {
+            inline constexpr static auto from_vector(const file& image_file, u32 width, u32 height) -> pixmap {
                 pathstr file_path = image_file.path();
                 NSVGimage* svg = nsvgParseFromFile(file_path.cstr(), "px", 96.0f);
                 if (!svg) log::err("failed to parse svg (nanosvg): {}", file_path);
@@ -64,7 +65,7 @@ namespace ulx {
                 return pixmap(texture_pixels, width, height);
             }
     
-            inline static auto from_text(const str& text, const font f = font()) -> pixmap {
+            inline constexpr static auto from_text(const str& text, const font f = font()) -> pixmap {
                 const __uii::font::text_layout& text_layout = __uii::font::layout_text(text, f);
     
                 u32 width = static_cast<u32>(text_layout.total_width);
@@ -97,10 +98,10 @@ namespace ulx {
             }
     
         public:
-            inline constexpr auto size() const -> recsize { return recsize(texture_width, texture_height); }
+            inline constexpr auto size() const -> size { return {static_cast<f32>(texture_width), static_cast<f32>(texture_height)}; }
             inline constexpr auto width() const -> u32 { return texture_width; }
             inline constexpr auto height() const -> u32 { return texture_height; }
             inline constexpr auto pixel_size() const -> u64 { return texture_size; }
-            inline constexpr auto pixels() const -> const vec<ulx::u8> { return texture_pixels; }
+            inline constexpr auto pixels() -> vec<ulx::u8>& { return texture_pixels; }
     };
 }

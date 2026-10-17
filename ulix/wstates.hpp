@@ -2,7 +2,7 @@
 #include "callback.hpp"
 #include "color.hpp"
 #include "easing.hpp"
-#include "object.hpp"
+#include "element.hpp"
 #include "requires.hpp"
 
 #define event_pressed
@@ -60,17 +60,17 @@ namespace ulx::wst {
                 return current_color;
             }
 
-            inline constexpr auto pressed(ulx::object& object, const ulx::color& empty) -> void {
+            inline constexpr auto pressed(ulx::element& object, const ulx::color& empty) -> void {
                 if (current_color == ulx::color::empty())
                     object.back(empty);
             }
 
-            inline constexpr auto released(ulx::object& object, const ulx::color& empty) -> void {
+            inline constexpr auto released(ulx::element& object, const ulx::color& empty) -> void {
                 if (current_color == empty)
                     object.back(ulx::color::empty());
             }
 
-            inline constexpr auto hovered(ulx::object& object, const ulx::color& empty) -> void {
+            inline constexpr auto hovered(ulx::element& object, const ulx::color& empty) -> void {
                 if (current_color == ulx::color::empty())
                     object.back(empty);
             }
@@ -90,42 +90,42 @@ namespace ulx::wst {
     class clicked {
         private:
             bool is_pressed = false;
-            ulx::object::pressed_event pressed_e;
-            ulx::object::released_event released_e;
-            ulx::object::hovered_event hovered_e;
-            ulx::object::mouse_event clicked_e;
+            ulx::element::pressed_event pressed_e;
+            ulx::element::released_event released_e;
+            ulx::element::hovered_event hovered_e;
+            ulx::element::mouse_event clicked_e;
 
         public:
             template<typename P, typename R, typename H, typename C>
-                requires ulx::expect<P, ulx::object::pressed_event> &&
-                         ulx::expect<R, ulx::object::released_event> &&
-                         ulx::expect<H, ulx::object::hovered_event> &&
-                         ulx::expect<C, ulx::object::mouse_event>
-            inline constexpr auto usefor(ulx::object& object, C&& clicked_event, P&& pressed_event, R&& released_event, H&& hovered_event) -> void {
+                requires ulx::expect<P, ulx::element::pressed_event> &&
+                         ulx::expect<R, ulx::element::released_event> &&
+                         ulx::expect<H, ulx::element::hovered_event> &&
+                         ulx::expect<C, ulx::element::mouse_event>
+            inline constexpr auto usefor(ulx::element& object, C&& clicked_event, P&& pressed_event, R&& released_event, H&& hovered_event) -> void {
                 pressed_e = std::forward<P>(pressed_event);
                 released_e = std::forward<R>(released_event);
                 hovered_e = std::forward<H>(hovered_event);
                 clicked_e = std::forward<C>(clicked_event);
                 
-                object.pressed([this](ulx::context& ctx, ulx::object& slf) {
+                object.pressed([this](ulx::context& ctx, ulx::element& slf) {
                     pressed();
                     pressed_e(ctx, slf);
-                }).released([this](ulx::context& ctx, ulx::object& slf) {
+                }).released([this](ulx::context& ctx, ulx::element& slf) {
                     released();
                     released_e(ctx, slf);
-                }).hovered([this](ulx::context& ctx, ulx::object& slf) {
+                }).hovered([this](ulx::context& ctx, ulx::element& slf) {
                     hovered_e(ctx, slf);
                     if (hovered()) clicked_e(ctx, slf);
                 });
             }
 
             template<typename C>
-                requires ulx::expect<C, ulx::object::hovered_event>
-            inline constexpr auto usefor(ulx::object& object, C&& clicked_event) -> void {
+                requires ulx::expect<C, ulx::element::hovered_event>
+            inline constexpr auto usefor(ulx::element& object, C&& clicked_event) -> void {
                 usefor(object, clicked_event,
-                    ulx::object::pressed_event(),
-                    ulx::object::released_event(),
-                    ulx::object::hovered_event());
+                    ulx::element::pressed_event(),
+                    ulx::element::released_event(),
+                    ulx::element::hovered_event());
             }
 
         public:

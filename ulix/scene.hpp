@@ -2,13 +2,13 @@
 #include "requires.hpp"
 #include "types.hpp"
 #include "color.hpp"
-#include "object.hpp"
+#include "element.hpp"
 #include "align.hpp"
 
 namespace ulx {
     class scene {
         private:
-            vec<object> objects;
+            vec<element> elements;
             color background_color;
             u8 alignment = alignleft | aligntop;
             u32 paddin = 5;
@@ -18,10 +18,10 @@ namespace ulx {
             scene() = default;
     
         public:
-            template<typename O>
-                requires expect<O, object>
-            inline auto child(O&& object) -> scene& {
-                objects.push_back(std::forward<O>(object));
+            template<typename E>
+                requires expect<E, element>
+            inline auto child(E&& element) -> scene& {
+                elements.push_back(std::forward<E>(element));
                 
                 return *this;
             }
@@ -53,7 +53,7 @@ namespace ulx {
             }
     
         public:
-            inline auto get_objects() -> vec<object>& { return objects; }
+            inline auto get_objects() -> vec<element>& { return elements; }
             inline auto get_background_color() const -> const color& { return background_color; }
             inline auto get_alignment() const -> u8 { return alignment; }
             inline auto get_padding() const -> u32 { return paddin; }

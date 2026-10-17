@@ -1,4 +1,5 @@
 #pragma once
+#include "autohasher.hpp"
 #include "log.hpp"
 #include "types.hpp"
 #include <cstring>
@@ -33,20 +34,3 @@ namespace ulx {
 
     using pathstr = ulx::stablestr<260>;
 }
-
-template<ulx::u64 size> struct std::hash<ulx::stablestr<size>> {
-    ulx::u64 operator()(const ulx::stablestr<size>& s) const noexcept {
-        ulx::u64 h = 14695981039346656037ULL;
-        for (const char* p = s.cstr(); *p; ++p) {
-            h ^= static_cast<ulx::u64>(*p);
-            h *= 1099511628211ULL;
-        }
-        return h;
-    }
-};
-
-template<ulx::u64 size> struct std::equal_to<ulx::stablestr<size>> {
-    bool operator()(const ulx::stablestr<size>& lhs, const ulx::stablestr<size>& rhs) const {
-        return lhs == rhs;
-    }
-};

@@ -1,6 +1,6 @@
 #pragma once
 
-#include "recsize.hpp"
+#include "size.hpp"
 #include "winfunc.hpp"
 #include "types.hpp"
 #include "log.hpp"
@@ -8,7 +8,7 @@
 namespace ulx::screen {
     inline static ulx::f32 _screen_width, _screen_height;
 
-    inline static auto size() -> ulx::recsize { return ulx::recsize(_screen_width, _screen_height); }
+    inline static auto size() -> ulx::size { return {_screen_width, _screen_height}; }
     inline static auto width() -> ulx::f32 { return _screen_width; }
     inline static auto height() -> ulx::f32 { return _screen_height; }
     inline static auto dpi() -> ulx::u32 { return ulx::wfn::system_dpi; }
