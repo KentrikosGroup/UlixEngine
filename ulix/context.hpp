@@ -40,7 +40,7 @@ inline auto ulx::context::update_push_constant() -> void {
 }
 
 inline auto ulx::context::update_texture_images(ulx::size& siz, const element& object, u32& texture_index) -> __uii::ats::uv {
-    element::texture_variant texture_variant = object.get_texture();
+    element::texture::variant texture_variant = object.get_texture();
     __uii::ats::uv resuv = {{0, 0}, {1, 1}};
 
     std::visit([&](auto&& arg) {
@@ -179,7 +179,7 @@ inline auto ulx::context::set_layout(ulx::size& siz, point& pos, const ulx::size
     }
 }
 
-inline auto ulx::context::event_valid(element::pressed_event pressed_event, element::released_event released_event, element::hovered_event hovered_event) -> bool {
+inline auto ulx::context::event_valid(element::event::pressed pressed_event, element::event::released released_event, element::event::hovered hovered_event) -> bool {
     return pressed_event.valid() || released_event.valid() || hovered_event.valid();
 }
 
@@ -199,9 +199,9 @@ inline auto ulx::context::push_elements(vec<element>& objects, u32& render_index
             POINT pt; GetCursorPos(&pt);
             HWND hwnd = WindowFromPoint(pt);
 
-            element::pressed_event pressed_event = obj.get_pressed_event();
-            element::released_event released_event = obj.get_released_event();
-            element::hovered_event hovered_event = obj.get_hovered_event();
+            element::event::pressed pressed_event = obj.get_pressed_event();
+            element::event::released released_event = obj.get_released_event();
+            element::event::hovered hovered_event = obj.get_hovered_event();
             if (hwnd == window_hwnd || hwnd == snap_trigger_hwnd) {
                 ScreenToClient(window_hwnd, &pt);
                 if (event_valid(pressed_event, released_event, hovered_event) &&

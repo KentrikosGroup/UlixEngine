@@ -64,9 +64,9 @@ namespace ulx {
                 box parent_layout, f32& parent_x_offset, f32& parent_y_offset, 
                 f32 parent_padding, u8 align) -> void;
             auto event_valid(
-                element::pressed_event pressed_event, 
-                element::released_event released_event, 
-                element::hovered_event hovered_event) -> bool;
+                element::event::pressed pressed_event, 
+                element::event::released released_event, 
+                element::event::hovered hovered_event) -> bool;
 
         /* window handle & window configs & native window states */ 
         private:
