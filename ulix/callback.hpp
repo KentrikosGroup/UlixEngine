@@ -21,7 +21,7 @@ namespace ulx {
             requires (!std::is_same_v<std::decay_t<F>, callback>)
         inline constexpr callback(F&& f) {
             using decayed = std::decay_t<F>;
-            log::expect(sizeof(decayed) <= max_size, "callback.hpp: callback(): decayed: callback too large for stack storage");
+            log::expect(sizeof(decayed) <= max_size, "callback.hpp: namespace ulx: class callback<R(As...), max_size>: callback(F&&): sizeof(decayed) > max_size");
             
             new (&buffer) decayed(std::forward<F>(f));
             invoker = [](void* buf, As... args) -> R { return (*static_cast<decayed*>(buf))(std::forward<As>(args)...); };
@@ -34,7 +34,7 @@ namespace ulx {
 
         template<typename... Cs>
         inline constexpr auto operator()(Cs&&... args) const -> R {
-            log::expect(invoker, "callback.hpp: operator(): fn: invalid callback");
+            log::expect(invoker != nullptr, "callback.hpp: namespace ulx: class callback<R(As...), max_size>: operator(Cs&&...): invoker == nullptr");
             return invoker(const_cast<unsigned char*>(buffer), std::forward<Cs>(args)...);
         }
 

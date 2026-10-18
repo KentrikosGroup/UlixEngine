@@ -8,18 +8,18 @@
 namespace ulx {
     class file {
         private:
-            stablestr<260> file_path;
+            pathstr file_path;
     
         public:
             inline constexpr file() = default;
-            
-            template<typename S>
-                requires expect<S, str>
-            inline constexpr file(S&& file_path): file_path(std::forward<S>(file_path)) {}
-            
-            inline constexpr auto operator==(const file& other) const -> bool {
-                return file_path == other.file_path;
+
+            template<typename _pathstr>
+                requires ulx::expect<_pathstr, pathstr>
+            inline constexpr file(_pathstr&& path) {
+                file_path = std::forward<_pathstr>(path);
             }
+            
+            inline constexpr auto operator==(const file& other) const -> bool = default;
     
             inline auto read_string() const -> str {
                 std::ifstream file_handle = std::ifstream(file_path.cstr());
@@ -35,7 +35,7 @@ namespace ulx {
             inline auto suffix() const -> str { return std::filesystem::path(file_path.cstr()).extension().string(); }
     
         public:
-            inline auto path() const -> const stablestr<260>& { return file_path; }
+            inline auto path() const -> const pathstr& { return file_path; }
     };
 }
 

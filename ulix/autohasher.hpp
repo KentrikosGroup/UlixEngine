@@ -27,7 +27,7 @@ struct member_accessor;
 template<typename T, std::size_t I>
 struct member_accessor<T, I, 0> {
     static decltype(auto) get(const T& obj) {
-        ulx::log::expect(I >= 0, "autohasher.hpp: member_accessor<>: get(): index out of bounds");
+        ulx::log::expect(I >= 0, "autohasher.hpp: member_accessor<T, I, 0>: get(const T&): index out of bounds");
     }
 };
 

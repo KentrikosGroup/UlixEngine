@@ -1,4 +1,5 @@
 #pragma once
+#include "log.hpp"
 #include "requires.hpp"
 #include "types.hpp"
 #include "color.hpp"
@@ -18,10 +19,10 @@ namespace ulx {
             scene() = default;
     
         public:
-            template<typename E>
-                requires expect<E, element>
-            inline auto child(E&& element) -> scene& {
-                elements.push_back(std::forward<E>(element));
+            template<typename _element>
+                requires ulx::expect<_element, element>
+            inline auto child(_element&& element) -> scene& {
+                elements.push_back(std::forward<_element>(element));
                 
                 return *this;
             }

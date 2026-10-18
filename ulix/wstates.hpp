@@ -3,7 +3,8 @@
 #include "color.hpp"
 #include "easing.hpp"
 #include "element.hpp"
-#include "requires.hpp"
+#include "types.hpp"
+#include <utility>
 
 #define event_pressed
 #define event_released
@@ -12,137 +13,129 @@
 
 namespace ulx::wst {
     class gradcolor {
-        public:
-            using easing_callback = ulx::callback<ulx::f32(ulx::f32)>;
+        color current_color;
+        color start_color;
+        color target_color;
+        u64 start_time = 0;
+        u64 duration = 1000;
+        bool animating = false;
 
-        private:
-            ulx::color current_color;
-            ulx::color start_color;
-            ulx::color target_color;
-            ulx::u64 start_time = 0;
-            ulx::u64 duration = 1000;
-            bool animating = false;
+        public: using easing_callback = callback<f32(f32)>;
 
-        public:
-            inline constexpr gradcolor() = default;
-
-            template<typename C>
-                requires ulx::expect<C, ulx::color>
-            inline constexpr gradcolor(C&& start): 
-                current_color(std::forward<C>(start)),
-                start_color(std::forward<C>(start)) {}
+        public: inline constexpr gradcolor() = default;
+        public: template<typename _color>
+            requires ulx::expect<_color, color>
+        inline constexpr gradcolor(_color&& start) {
+            current_color = std::forward<_color>(start);
+            start_color = std::forward<_color>(start);
+        }
                 
-            inline constexpr auto to(ulx::color target, ulx::u64 duration, const easing_callback& easing = ulx::eas::inout2) -> ulx::color {
-                if (!animating || target != target_color) {
-                    start_color = current_color;
-                    target_color = target;
-                    duration = duration;
-                    start_time = get_time();
-                    animating = true;
-                }
+        public: template<typename _color>
+            requires ulx::expect<_color, color>
+        inline constexpr auto to(_color&& target, u64 duration, const easing_callback& easing = eas::inout2) -> color {
+            if (!animating || target != target_color) {
+                start_color = current_color;
+                target_color = target;
+                duration = duration;
+                start_time = get_time();
+                animating = true;
+            }
 
-                ulx::u64 elapsed = get_time() - start_time;
-                if (elapsed >= duration) {
-                    current_color = target_color;
-                    animating = false;
-                    return current_color;
-                }
-
-                float delta = static_cast<float>(elapsed) / static_cast<float>(duration);
-                delta = easing(delta);
-                current_color = {
-                    start_color.red() + (target_color.red() - start_color.red()) * delta,
-                    start_color.green() + (target_color.green() - start_color.green()) * delta,
-                    start_color.blue() + (target_color.blue() - start_color.blue()) * delta,
-                    start_color.alpha() + (target_color.alpha() - start_color.alpha()) * delta
-                };
-
+            u64 elapsed = get_time() - start_time;
+            if (elapsed >= duration) {
+                current_color = target_color;
+                animating = false;
                 return current_color;
             }
 
-            inline constexpr auto pressed(ulx::element& object, const ulx::color& empty) -> void {
-                if (current_color == ulx::color::empty())
-                    object.back(empty);
-            }
+            float delta = static_cast<float>(elapsed) / static_cast<float>(duration);
+            delta = easing(delta);
+            current_color = {
+                start_color.red() + (target_color.red() - start_color.red()) * delta,
+                start_color.green() + (target_color.green() - start_color.green()) * delta,
+                start_color.blue() + (target_color.blue() - start_color.blue()) * delta,
+                start_color.alpha() + (target_color.alpha() - start_color.alpha()) * delta
+            };
 
-            inline constexpr auto released(ulx::element& object, const ulx::color& empty) -> void {
-                if (current_color == empty)
-                    object.back(ulx::color::empty());
-            }
+            return current_color;
+        }
 
-            inline constexpr auto hovered(ulx::element& object, const ulx::color& empty) -> void {
-                if (current_color == ulx::color::empty())
-                    object.back(empty);
-            }
+        public: template<typename _color>
+            requires ulx::expect<_color, color>
+        inline constexpr auto pressed(element& object, _color&& empty) -> void {
+            if (current_color == color::empty())
+                object.back(std::forward<_color>(empty));
+        }
 
-            inline constexpr auto color() -> ulx::color& {
-                return current_color;
-            }
+        public: inline constexpr auto released(element& object, const color& empty) -> void {
+            if (current_color == empty)
+                object.back(color::empty());
+        }
 
-        private:
-            inline constexpr ulx::u64 get_time() {
-                auto now = std::chrono::steady_clock::now();
-                return std::chrono::duration_cast<std::chrono::milliseconds>(
-                    now.time_since_epoch()).count();
-            }
+        public: template<typename _color>
+            requires ulx::expect<_color, color>
+        inline constexpr auto hovered(element& object, _color&& empty) -> void {
+            if (current_color == color::empty())
+                object.back(std::forward<_color>(empty));
+        }
+
+        public: inline constexpr auto color() -> color& {
+            return current_color;
+        }
+
+        private: inline constexpr u64 get_time() {
+            return ms_cast(steady::now().time_since_epoch()).count();
+        }
     };
 
     class clicked {
-        private:
-            bool is_pressed = false;
-            ulx::element::pressed_event pressed_e;
-            ulx::element::released_event released_e;
-            ulx::element::hovered_event hovered_e;
-            ulx::element::mouse_event clicked_e;
+        bool is_pressed = false;
+        element::event::pressed pressed_e;
+        element::event::released released_e;
+        element::event::hovered hovered_e;
+        element::event::mouse clicked_e;
 
-        public:
-            template<typename P, typename R, typename H, typename C>
-                requires ulx::expect<P, ulx::element::pressed_event> &&
-                         ulx::expect<R, ulx::element::released_event> &&
-                         ulx::expect<H, ulx::element::hovered_event> &&
-                         ulx::expect<C, ulx::element::mouse_event>
-            inline constexpr auto usefor(ulx::element& object, C&& clicked_event, P&& pressed_event, R&& released_event, H&& hovered_event) -> void {
-                pressed_e = std::forward<P>(pressed_event);
-                released_e = std::forward<R>(released_event);
-                hovered_e = std::forward<H>(hovered_event);
-                clicked_e = std::forward<C>(clicked_event);
-                
-                object.pressed([this](ulx::context& ctx, ulx::element& slf) {
-                    pressed();
-                    pressed_e(ctx, slf);
-                }).released([this](ulx::context& ctx, ulx::element& slf) {
-                    released();
-                    released_e(ctx, slf);
-                }).hovered([this](ulx::context& ctx, ulx::element& slf) {
-                    hovered_e(ctx, slf);
-                    if (hovered()) clicked_e(ctx, slf);
-                });
-            }
+        public: template<typename _event1, typename _event2, typename _event3, typename _event4>
+            requires ulx::expect<_event1, element::event::mouse> &&
+                     ulx::expect<_event2, element::event::pressed> &&
+                     ulx::expect<_event3, element::event::released> &&
+                     ulx::expect<_event4, element::event::hovered>
+        inline constexpr auto usefor(element& object, _event1&& clicked_event, 
+            _event2&& pressed_event = element::event::pressed(), 
+            _event3&& released_event = element::event::released(), 
+            _event4&& hovered_event = element::event::hovered()
+        ) -> void {
+            clicked_e = std::forward<_event1>(clicked_event);
+            pressed_e = std::forward<_event2>(pressed_event);
+            released_e = std::forward<_event3>(released_event);
+            hovered_e = std::forward<_event4>(hovered_event);
+            
+            object.pressed([this](context& ctx, element& slf) {
+                pressed();
+                pressed_e(ctx, slf);
+            }).released([this](context& ctx, element& slf) {
+                released();
+                released_e(ctx, slf);
+            }).hovered([this](context& ctx, element& slf) {
+                hovered_e(ctx, slf);
+                if (hovered()) clicked_e(ctx, slf);
+            });
+        }
 
-            template<typename C>
-                requires ulx::expect<C, ulx::element::hovered_event>
-            inline constexpr auto usefor(ulx::element& object, C&& clicked_event) -> void {
-                usefor(object, clicked_event,
-                    ulx::element::pressed_event(),
-                    ulx::element::released_event(),
-                    ulx::element::hovered_event());
-            }
+        public: inline constexpr auto pressed() -> void {
+            is_pressed = true;
+        }
 
-        public:
-            inline constexpr auto pressed() -> void {
-                is_pressed = true;
-            }
+        public: inline constexpr auto released() -> void {
+            is_pressed = false;
+        }
 
-            inline constexpr auto released() -> void {
+        public: inline constexpr auto hovered() -> bool {
+            if (is_pressed == true) {
                 is_pressed = false;
+                return true;
             }
-
-            inline constexpr auto hovered() -> bool {
-                if (is_pressed == true) {
-                    is_pressed = false;
-                    return true;
-                }
-                return false;
-            }
+            return false;
+        }
     };
 }

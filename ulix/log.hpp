@@ -1,7 +1,8 @@
 #pragma once
 
-#include "requires.hpp"
+#include "types.hpp"
 #include "vulkan/vulkan_core.h"
+#include <concepts>
 #include <format>
 #include <print>
 #define NOMINMAX
@@ -75,6 +76,10 @@ namespace ulx::log {
         if (!condition) err(format, std::forward<Args>(args)...);
     }
 
+    template<typename T, typename E, typename... Args> inline constexpr void notype(const char* format, Args&&... args) {
+        if constexpr (!std::constructible_from<E, T>) err(format, std::forward<Args>(args)...);
+    }
+
     template<typename... Args> inline constexpr void vk(VkResult result, const char* format, Args&&... args) {
         if (result != VK_SUCCESS) {
             ulx::str error_code = std::format("VkResult: {} ({})", static_cast<ulx::u32>(result), vkresult_to_string(result));
@@ -92,6 +97,7 @@ namespace ulx::log {
 namespace ulx::log {
     template<typename... Args> [[noreturn]] inline constexpr void err([[maybe_unused]] const char* format, [[maybe_unused]] Args&&... args) { std::_Exit(-1); }
     template<typename... Args> inline constexpr void expect([[maybe_unused]] bool condition, [[maybe_unused]] const char* format, [[maybe_unused]] Args&&... args) {}
+    template<typename T, typename E, typename... Args> inline constexpr void notype(const char* format, Args&&... args) {}
     template<typename... Args> inline constexpr void warn([[maybe_unused]] const char* format, [[maybe_unused]] Args&&... args) {}
     template<typename... Args> inline constexpr void vk([[maybe_unused]] VkResult result, [[maybe_unused]] const char* format, [[maybe_unused]] Args&&... args) {}
 }

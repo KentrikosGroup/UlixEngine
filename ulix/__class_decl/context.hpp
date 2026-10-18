@@ -17,13 +17,9 @@ namespace ulx {
     class context {
         /* texture caches */
         private:
-            // hashmap<file, u32> bitmap_texture_cache;
-            // hashmap<pack<file, size>, u32> vector_texture_cache;
-            // hashmap<pack<str, font>, u32> font_texture_cache;
-
-            hashmap<file, __uii::ats::idx> bitmap_texture_cache2;
-            hashmap<pack<file, size>, __uii::ats::idx> vector_texture_cache2;
-            hashmap<pack<str, font>, __uii::ats::idx> font_texture_cache2;
+            hashmap<file, __uii::ats::idx> bitmap_texture_cache;
+            hashmap<pack<file, size>, __uii::ats::idx> vector_texture_cache;
+            hashmap<pack<str, font>, __uii::ats::idx> font_texture_cache;
             
             u32 current_atlas_index = 1;
             u32 current_atlas_x = 0, current_atlas_y = 0;
@@ -55,7 +51,7 @@ namespace ulx {
         private:
             auto update_push_constant() -> void;
             auto update_scene_objects() -> void;
-            auto push_elements(vec<element>& objects, u32& render_index, const size& parent_size, 
+            auto push_elements(vec<element>& elements, u32& render_index, const size& parent_size, 
                 const point& parent_pos, box parent_layout, f32& x_offset, f32& y_offset, 
                 f32 parent_padding, u8 align) -> void;
             auto push_element(const element& object, const size& siz, const point& pos, 
@@ -64,9 +60,9 @@ namespace ulx {
                 box parent_layout, f32& parent_x_offset, f32& parent_y_offset, 
                 f32 parent_padding, u8 align) -> void;
             auto event_valid(
-                element::event::pressed pressed_event, 
-                element::event::released released_event, 
-                element::event::hovered hovered_event) -> bool;
+                const element::event::pressed& pressed_event, 
+                const element::event::released& released_event, 
+                const element::event::hovered& hovered_event) -> bool;
 
         /* window handle & window configs & native window states */ 
         private:
