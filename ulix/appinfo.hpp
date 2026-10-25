@@ -3,6 +3,7 @@
 #include "requires.hpp"
 #include "stablestr.hpp"
 #include "types.hpp"
+#include <utility>
 
 namespace ulx { 
     class appinfo {
@@ -13,12 +14,12 @@ namespace ulx {
     
         public: inline constexpr appinfo() = default;
 
-        public: template<typename _str, typename _file>
-            requires ulx::expect<_str, str> && ulx::expect<_file, file>
-            inline constexpr appinfo(_str&& appid, _file&& cache) {
+        public: template<typename _stablestr, typename _file>
+            requires ulx::expect<_stablestr, stablestr<>> && ulx::expect<_file, file>
+            inline constexpr appinfo(_stablestr&& appid, _file&& cache) {
             
-            this->appid = appid;
-            this->cache_file = cache;
+            this->appid = std::forward<_stablestr>(appid);
+            this->cache_file = std::forward<_file>(cache);
         }
     
         public: inline constexpr auto version(u32 major, u32 minor, u32 patch) -> appinfo& {

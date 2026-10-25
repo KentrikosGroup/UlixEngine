@@ -3,8 +3,11 @@
 #include "__inside_impl/atlaspusher.hpp"
 #include "glm/ext/matrix_clip_space.hpp"
 #include "stablestr.hpp"
+#include "ulix/font.hpp"
 #include "vulkan/vulkan_core.h"
+#include <future>
 #include <intsafe.h>
+#include <winuser.h>
 #define NOMINMAX
 #define WIN32_LEAN_AND_MEAN
 #define VK_USE_PLATFORM_WIN32_KHR
@@ -48,9 +51,9 @@ inline auto ulx::context::update_texture_images(ulx::size& siz, const element& o
     std::visit([&](auto&& arg) {
         using T = std::decay_t<decltype(arg)>;
 
-        if constexpr (std::same_as<T, std::monostate>) {
+        if constexpr (std::same_as<T, element::texture::none>) {
             texture_index = 0;
-        } else if constexpr (std::same_as<T, file>) {
+        } else if constexpr (std::same_as<T, element::texture::bitmap>) {
             auto it = bitmap_texture_cache.find(arg);
             if (it != bitmap_texture_cache.end())
                 texture_index = it->second.template get<0>();
@@ -66,7 +69,7 @@ inline auto ulx::context::update_texture_images(ulx::size& siz, const element& o
             ulx::size uvsiz = resuv.template get<1>();
             if (siz.width() == -1) siz = {wfn::logical(uvsiz.width() * 2048, window_dpi), siz.height()};
             if (siz.height() == -1) siz = {siz.width(), wfn::logical(uvsiz.height() * 2048, window_dpi)};
-        } else if constexpr (std::same_as<T, pack<file, ulx::size>>) {
+        } else if constexpr (std::same_as<T, element::texture::vector>) {
             auto it = vector_texture_cache.find(arg);
             if (it != vector_texture_cache.end())
                 texture_index = it->second.template get<0>();
@@ -88,14 +91,14 @@ inline auto ulx::context::update_texture_images(ulx::size& siz, const element& o
             ulx::size uvsiz = resuv.template get<1>();
             if (siz.width() == -1) siz = {wfn::logical(uvsiz.width() * 1024, window_dpi), siz.height()};
             if (siz.height() == -1) siz = {siz.width(), wfn::logical(uvsiz.height() * 1024, window_dpi)};
-        } else if constexpr (std::same_as<T, pack<str, font>>) {
+        } else if constexpr (std::same_as<T, element::texture::text>) {
             auto it = font_texture_cache.find(arg);
             if (it != font_texture_cache.end())
                 texture_index = it->second.template get<0>();
             else {
                 font font = arg.template get<1>();
-                font.set_size(wfn::physical(font.get_size(), window_dpi));
-                pixmap pm = pixmap::from_text(arg.template get<0>(), font);
+                font.size(wfn::physical(font.get_size(), window_dpi));
+                pixmap pm = pixmap::from_char(arg.template get<0>(), font);
                 __uii::ats::idx idx = __uii::ats::push_pixmap(texture_image_pixmaps, current_atlas_index, current_atlas_x, current_atlas_y, current_atlas_max_height, pm);
                 ulx::pixmap& cpm = texture_image_pixmaps[current_atlas_index];
 
@@ -257,19 +260,19 @@ inline auto ulx::context::update_scene_objects() -> void {
 }
 
 inline auto ulx::context::set_tick(const tick_callback& callback) -> void { this->ticker = callback; }
-inline auto ulx::context::dpi() const -> UINT { return window_dpi; }
+inline auto ulx::context::win_dpi() const -> UINT { return window_dpi; }
 inline auto ulx::context::set_delay(u64 delay) -> void { this->tick_delay = delay; }
-inline auto ulx::context::set_cur(cursor c) -> void { this->curs = c; }
-inline auto ulx::context::cur_pos() const -> point {
+inline auto ulx::context::win_set_cursor(cursor c) -> void { this->curs = c; }
+inline auto ulx::context::win_cursor() const -> point {
     POINT pt; GetCursorPos(&pt);
     ScreenToClient(window_hwnd, &pt);
     return {wfn::logical(pt.x), wfn::logical(pt.y)};
 }
-inline auto ulx::context::pressing() const -> bool { return GetAsyncKeyState(VK_LBUTTON) & 0x8000; }
-inline auto ulx::context::max() -> void { window_max = true; }
-inline auto ulx::context::min() -> void { window_min = true; }
-inline auto ulx::context::restore() -> void { window_restore = true; }
-inline auto ulx::context::is_maxed() const -> bool { return IsZoomed(window_hwnd); }
+inline auto ulx::context::win_max() -> void { window_max = true; }
+inline auto ulx::context::win_min() -> void { window_min = true; }
+inline auto ulx::context::win_restore() -> void { window_restore = true; }
+inline auto ulx::context::win_maxed() const -> bool { return IsZoomed(window_hwnd); }
+inline auto ulx::context::win_mined() const -> bool { return IsIconic(window_hwnd); }
 
 inline auto ulx::context::snap_trigger_process(HWND hwnd, UINT message, WPARAM wparam, LPARAM lparam) -> LRESULT {
     switch (message) {
@@ -315,7 +318,7 @@ inline auto ulx::context::win32_process(HWND hwnd, UINT message, WPARAM wparam, 
 
             POINT cursor_position; GetCursorPos(&cursor_position);
             RECT window_rect; GetWindowRect(hwnd, &window_rect);
-            int frame = GetSystemMetricsForDpi(SM_CYFRAME, ctx->dpi());
+            int frame = GetSystemMetricsForDpi(SM_CYFRAME, ctx->win_dpi());
             POINT cursor_position_global = cursor_position;
             ScreenToClient(hwnd, &cursor_position_global);
 
@@ -494,6 +497,7 @@ inline auto ulx::context::create_window(const wininfo& window_info, const appinf
 
     window_dpi = GetDpiForWindow(window_hwnd);
     ulx::window_dpi = window_dpi;
+    __uii::fgg::window_dpi = window_dpi;
     SetWindowLongPtrW(window_hwnd, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(this));
 
     // update window
@@ -530,32 +534,32 @@ inline auto ulx::context::exec() -> int {
     return 0;
 }
 
-inline auto ulx::context::set_min(const ulx::size& size) -> void { window_min_size = size; }
-inline auto ulx::context::set_max(const ulx::size& size) -> void { window_max_size = size; }
-inline auto ulx::context::show() const -> void { ShowWindow(window_hwnd, SW_SHOW); UpdateWindow(window_hwnd); }
-inline auto ulx::context::hide() const -> void { ShowWindow(window_hwnd, SW_HIDE); UpdateWindow(window_hwnd); }
+inline auto ulx::context::win_set_minsize(const ulx::size& size) -> void { window_min_size = size; }
+inline auto ulx::context::win_set_maxsize(const ulx::size& size) -> void { window_max_size = size; }
+inline auto ulx::context::win_show() const -> void { ShowWindow(window_hwnd, SW_SHOW); UpdateWindow(window_hwnd); }
+inline auto ulx::context::win_hide() const -> void { ShowWindow(window_hwnd, SW_HIDE); UpdateWindow(window_hwnd); }
 inline auto ulx::context::exit() const -> void { PostMessageW(window_hwnd, WM_CLOSE, 0, 0); }
-inline auto ulx::context::size() const -> ulx::size { return {wfn::logical(window_width), wfn::logical(window_height)}; }
-inline auto ulx::context::width() const -> f32 { return wfn::logical(window_width); }
-inline auto ulx::context::height() const -> f32 { return wfn::logical(window_height); }
-inline auto ulx::context::pos() const -> point {
+inline auto ulx::context::win_size() const -> ulx::size { return {wfn::logical(window_width), wfn::logical(window_height)}; }
+inline auto ulx::context::win_width() const -> f32 { return wfn::logical(window_width); }
+inline auto ulx::context::win_height() const -> f32 { return wfn::logical(window_height); }
+inline auto ulx::context::win_pos() const -> point {
     RECT window_rect{}; GetWindowRect(window_hwnd, &window_rect);
     return {wfn::logical(window_rect.left), wfn::logical(window_rect.top)};
 }
-inline auto ulx::context::x() const -> f32 { return pos().x(); }
-inline auto ulx::context::y() const -> f32 { return pos().y(); }
+inline auto ulx::context::win_x() const -> f32 { return win_pos().x(); }
+inline auto ulx::context::win_y() const -> f32 { return win_pos().y(); }
 
 
-inline auto ulx::context::mov(const point& pos) -> void {
+inline auto ulx::context::win_move(const point& pos) -> void {
     i32 physical_x = wfn::physical(pos.x());
     i32 physical_y = wfn::physical(pos.y());
     MoveWindow(window_hwnd, physical_x, physical_y, window_width, window_height, TRUE);
 }
 
-inline auto ulx::context::resize(const ulx::size& size) -> void {
+inline auto ulx::context::win_resize(const ulx::size& size) -> void {
     u32 physical_width = wfn::physical(size.width());
     u32 physical_height = wfn::physical(size.height());
-    MoveWindow(window_hwnd, x(), y(), physical_width, physical_height, TRUE);
+    MoveWindow(window_hwnd, win_x(), win_y(), physical_width, physical_height, TRUE);
     window_width = physical_width;
     window_height = physical_height;
 }
@@ -1211,23 +1215,30 @@ inline auto ulx::context::render() -> void {
                 break;
             }
         } if (all_signaled) {
-            for (u64 jndex = 0; jndex < pending_framebuffers.size(); jndex++) {
-                for (auto& framebuffer : pending_framebuffers[jndex])
-                    vkDestroyFramebuffer(logical_device, framebuffer, nullptr);
-                for (auto& imageview : pending_image_views[jndex])
-                    vkDestroyImageView(logical_device, imageview, nullptr);
-
-                VkSwapchainKHR current_swapchain_handle = pending_swapchains[jndex];
-                vkDestroySwapchainKHR(logical_device, current_swapchain_handle, nullptr);
-                
-                for (auto& semaphore : pending_semaphores[jndex])
-                    vkDestroySemaphore(logical_device, semaphore, nullptr);
-            }
+            {
+                std::lock_guard lock(pending_mutex);
             
-            pending_framebuffers.clear();
-            pending_image_views.clear();
-            pending_swapchains.clear();
-            pending_semaphores.clear();
+                auto local_swapchains = std::move(pending_swapchains);
+            
+                for (u64 j = 0; j < pending_framebuffers.size(); j++) {
+                    for (auto& fb : pending_framebuffers[j])
+                        vkDestroyFramebuffer(logical_device, fb, nullptr);
+                    for (auto& iv : pending_image_views[j])
+                        vkDestroyImageView(logical_device, iv, nullptr);
+                    for (auto& sem : pending_semaphores[j])
+                        vkDestroySemaphore(logical_device, sem, nullptr);
+                }
+            
+                pending_framebuffers.clear();
+                pending_image_views.clear();
+                pending_semaphores.clear();
+            
+                pending_fns.push_back(std::async(std::launch::async, [this, chains = std::move(local_swapchains)]() {
+                    for (auto sc : chains) {
+                        vkDestroySwapchainKHR(logical_device, sc, nullptr);
+                    }
+                }));
+            }
         }
     }
     
@@ -1252,9 +1263,9 @@ inline auto ulx::context::render() -> void {
     u32 image_index;
     VkResult acquire_result = vkAcquireNextImageKHR(logical_device, swapchain, UINT64_MAX, image_available_semaphores[current_frame], VK_NULL_HANDLE, &image_index);
     if (acquire_result == VK_ERROR_OUT_OF_DATE_KHR || acquire_result == VK_ERROR_SURFACE_LOST_KHR || acquire_result == VK_SUBOPTIMAL_KHR) {
-        recreate_swapchain();
+        swapchain_dirty = true;
         return;
-    } else log::vk(acquire_result, "context.hpp: ulx::context::render(): acquire_result != VK_SUCCESS");
+    } else log::expect(acquire_result == VK_SUCCESS, "context.hpp: ulx::context::render(): acquire_result != VK_SUCCESS");
 
     vkResetFences(logical_device, 1, &in_flight_fences[current_frame]);
     vkResetCommandBuffer(command_buffers[current_frame], 0);
@@ -1546,6 +1557,7 @@ inline auto ulx::context::create_texture_images() -> VkDeviceSize {
 inline auto ulx::context::destroy_vulkan_objects() -> void {
     vkDeviceWaitIdle(logical_device);
 
+    for (auto& fn : pending_fns) fn.get();
     for (u64 jndex = 0; jndex < pending_framebuffers.size(); jndex++) {
         for (auto& framebuffer : pending_framebuffers[jndex])
             vkDestroyFramebuffer(logical_device, framebuffer, nullptr);

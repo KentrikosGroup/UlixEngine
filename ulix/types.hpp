@@ -6,7 +6,7 @@
 #include <utility>
 #include <vector>
 #include <array>
-#include "__require_libraries/skarupke/flat_hash_map.hpp"
+#include "__required_libraries/skarupke/flat_hash_map.hpp"
 #include <chrono>
 
 namespace ulx {
@@ -18,12 +18,17 @@ namespace ulx {
     template<typename T> using time = chr::time_point<T>;
     using steady = chr::steady_clock;
 
-    /* chrono casts */
+    /* chrono functions */
     template<typename T>
-    inline static constexpr auto ms_cast(T&& dur) -> chrt::ms {
-        return chr::duration_cast<chrt::ms>(std::forward<T>(dur));
+    inline static constexpr auto ms_cast(const T& dur) -> chrt::ms {
+        return chr::duration_cast<chrt::ms>(dur);
     }
 
+    #ifndef ULIXRELEASE
+        #define debug_msstart ulx::steady::now();
+        #define debug_msinfo(last_steady) ulx::info("{}", ulx::ms_cast(ulx::steady::now() - last_steady))
+    #endif
+    
 
     /* type keyword alias */
     using i8 = std::int8_t;

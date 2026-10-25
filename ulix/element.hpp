@@ -12,7 +12,9 @@
 #include "color.hpp"
 #include "align.hpp"
 #include "pack.hpp"
-#include "__inside_impl/fontloader.hpp"
+#include "__inside_impl/font_glyph_getter.hpp"
+#include "types.hpp"
+#include "ulix/winfunc.hpp"
 #include <utility>
 #include <variant>
 
@@ -46,7 +48,7 @@ namespace ulx {
             using none = std::monostate;
             using bitmap = ulx::file;
             using vector = ulx::pack<ulx::file, ulx::size>;
-            using text = ulx::pack<ulx::str, ulx::font>;
+            using text = ulx::pack<ulx::u8char, ulx::font>;
             using variant = std::variant<none, bitmap, vector, text>;
         };
         
@@ -127,20 +129,20 @@ namespace ulx {
             return *this;
         }
 
-        public: inline constexpr auto texture(const file& bitmap_or_svg) -> element& {
-            if (!bitmap_or_svg.exists()) log::err("{} file {} doesn't exists", bitmap_or_svg.path());
-            texturev.emplace<file>(bitmap_or_svg);
+        public: inline constexpr auto texture(const file& file) -> element& {
+            log::expect(file.exists(), "element.hpp: namespace ulx: class element: texture(const ulx::file&): file.exists() == false");
+            texturev.emplace<texture::bitmap>(file);
             return *this;
         }
 
         public: inline constexpr auto texture(const file& svg, const ulx::size& size) -> element& {
-            if (!svg.exists()) log::err("SVG file {} doesn't exists", svg.path());
+            log::expect(svg.exists(), "element.hpp: namespace ulx: class element: texture(const ulx::file&, const ulx::size&): svg.exists() == false");
             texturev.emplace<texture::vector>(svg, size);
             return *this;
         }
 
-        public: inline constexpr auto texture(const ulx::str& text, const ulx::font& font = ulx::font()) -> element& {
-            texturev.emplace<texture::text>(text, font);
+        public: inline constexpr auto texture(const ulx::u8char& chr, const ulx::font& font = ulx::font()) -> element& {
+            texturev.emplace<texture::text>(chr, font);
             return *this;
         }
 
@@ -238,19 +240,19 @@ namespace ulx {
             return element().size(ulx::size(0, 0));
         }
 
-        template<typename _font>
+        template<typename _font = font>
             requires ulx::expect<_font, font>
-        inline static constexpr auto text(const str& txt, ulx::align align = alignbottom, _font&& font = ulx::font()) -> element {
-            ulx::i32 max_h = __uii::font::max_height_of(font);
-            element obj = box().pad(0)
-                .align(ulx::alignleft | align)
-                .box(ulx::horbox).size(ulx::size(0, max_h));
+        inline static constexpr auto text(const str& txt, _font&& font = ulx::font()) -> element {
+            auto metrics = __uii::fgg::line_metrics(font);
+            f32 height = static_cast<f32>(ulx::wfn::logical(metrics.template get<2>(), window_dpi));
+            element obj = box().size({0, height})
+                .align(ulx::alignleft | ulx::aligntop)
+                .box(ulx::horbox).pad(0);
 
-            ulx::str glyph_str;
             for (ulx::u64 i = 0; i < txt.size(); ) {
-                ulx::u32 cp = __uii::font::decode_utf8(txt, i);
-                glyph_str = "";
-
+                ulx::u32 cp = __uii::fgg::decode_utf8(txt, i);
+                ulx::u8char glyph_str;
+                
                 if (cp < 0x80) {
                     glyph_str += static_cast<char>(cp);
                 } else if (cp < 0x800) {
@@ -262,7 +264,7 @@ namespace ulx {
                     glyph_str += static_cast<char>(0x80 | (cp & 0x3F));
                 }
 
-                obj.child(element(glyph_str)
+                obj.child(element(glyph_str.cstr())
                     .texture(glyph_str, font)
                     .size(ulx::size::autos())
                     .border(0).corner(0).back(ulx::color::empty())

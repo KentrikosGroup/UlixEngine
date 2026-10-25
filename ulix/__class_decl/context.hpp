@@ -1,8 +1,5 @@
 #pragma once
-
 #include "../element.hpp"
-#include "../file.hpp"
-#include "../font.hpp"
 #include "../pixmap.hpp"
 #include "../appinfo.hpp"
 #include "../renderinfo.hpp"
@@ -12,14 +9,16 @@
 #include "../__inside_impl/atlaspusher.hpp"
 #include "../scene.hpp"
 #include "../cursor.hpp"
+#include <future>
+#include <mutex>
 
 namespace ulx {
     class context {
         /* texture caches */
         private:
-            hashmap<file, __uii::ats::idx> bitmap_texture_cache;
-            hashmap<pack<file, size>, __uii::ats::idx> vector_texture_cache;
-            hashmap<pack<str, font>, __uii::ats::idx> font_texture_cache;
+            hashmap<element::texture::bitmap, __uii::ats::idx> bitmap_texture_cache;
+            hashmap<element::texture::vector, __uii::ats::idx> vector_texture_cache;
+            hashmap<element::texture::text, __uii::ats::idx> font_texture_cache;
             
             u32 current_atlas_index = 1;
             u32 current_atlas_x = 0, current_atlas_y = 0;
@@ -80,30 +79,32 @@ namespace ulx {
 
         /* window interfaces */
         public:
-            auto dpi() const -> UINT;
             auto exec() -> int;
-            auto show() const -> void;
-            auto hide() const -> void;
             auto exit() const -> void;
-            auto size() const -> ulx::size;
-            auto pos() const -> point;
-            auto width() const -> f32;
-            auto height() const -> f32;
-            auto x() const -> f32;
-            auto y() const -> f32;
-            auto resize(const ulx::size& size) -> void;
-            auto mov(const point& pos) -> void;
-            auto set_min(const ulx::size& size) -> void;
-            auto set_max(const ulx::size& size) -> void;
             auto set_tick(const tick_callback& callback) -> void;
             auto set_delay(u64 delay) -> void;
-            auto set_cur(cursor cur) -> void;
-            auto cur_pos() const -> point;
-            auto pressing() const -> bool;
-            auto max() -> void;
-            auto min() -> void;
-            auto restore() -> void;
-            auto is_maxed() const -> bool;
+            
+            auto win_dpi() const -> UINT;
+            auto win_show() const -> void;
+            auto win_hide() const -> void;
+            auto win_size() const -> ulx::size;
+            auto win_pos() const -> point;
+            auto win_width() const -> f32;
+            auto win_height() const -> f32;
+            auto win_x() const -> f32;
+            auto win_y() const -> f32;
+            auto win_cursor() const -> point;
+            auto win_maxed() const -> bool;
+            auto win_mined() const -> bool;
+            
+            auto win_resize(const ulx::size& size) -> void;
+            auto win_move(const point& pos) -> void;
+            auto win_set_minsize(const ulx::size& size) -> void;
+            auto win_set_maxsize(const ulx::size& size) -> void;
+            auto win_set_cursor(cursor cur) -> void;
+            auto win_max() -> void;
+            auto win_min() -> void;
+            auto win_restore() -> void;
 
         /* vulkan datas & application states */
         private:
@@ -146,6 +147,9 @@ namespace ulx {
             vec<VkSwapchainKHR> pending_swapchains;
             vec<VkSemaphore> render_finished_semaphores;
             vec<vec<VkSemaphore>> pending_semaphores;
+
+            vec<std::future<void>> pending_fns;
+            std::mutex pending_mutex;
 
             pathstr cache_file_path;
             u32 max_texture_count;
