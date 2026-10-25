@@ -40,7 +40,7 @@ namespace ulx {
         public: inline constexpr auto get_size() const -> u32 { return font_size; }
         public: inline constexpr auto get_color() const -> const ulx::color& { return font_color; }
 
-        public: inline constexpr auto make(u32 size = 32, const ulx::color& color = ulx::color(255, 255, 255)) const -> font {
+        public: inline constexpr auto make(u32 size = 16, const ulx::color& color = ulx::color(255, 255, 255)) const -> font {
             return font(font_name.copy(), size, color);
         }
     };
