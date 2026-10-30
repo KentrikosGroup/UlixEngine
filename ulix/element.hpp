@@ -179,11 +179,11 @@ namespace ulx {
 
         public: template<typename _file>
             requires ulx::expect<_file, file>
-        inline constexpr auto icon(strvw id, _file&& svg, const geom& g) -> element& {
+        inline constexpr auto icon(strvw id, _file&& svg, const ulx::size& size) -> element& {
             child(element().style({
                 .background = ulx::color::empty(),
                 .corner = 0, .borderw = 0
-            }).geom(g).texture(std::forward<_file>(svg), g.size));
+            }).size(size).pos(ulx::point::center_to(size, siz)).texture(std::forward<_file>(svg), size));
             return *this;
         }
 
