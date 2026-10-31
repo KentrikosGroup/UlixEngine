@@ -46,7 +46,9 @@ namespace ulx {
         }
         
         public: inline constexpr auto array() const -> const arr<char, size>& { return str_array; }
+        public: inline constexpr auto array() -> arr<char, size>& { return str_array; }
         public: inline constexpr auto cstr() const -> const char* { return str_array.data(); }
+        public: inline constexpr auto cstr() -> char* { return str_array.data(); }
 
         public: inline constexpr auto operator<=>(const stablestr& other) const {
             return std::strcmp(cstr(), other.cstr()) <=> 0;
@@ -122,6 +124,12 @@ namespace ulx {
             return *this + other.cstr();
         }
 
+        public: inline constexpr auto operator+(const char* cstr) const -> stablestr {
+            stablestr result(*this);
+            result += strvw(cstr);
+            return result;
+        }
+
         public: friend inline constexpr auto operator+(char lhs, const stablestr& rhs) -> stablestr {
             stablestr result(strvw(&lhs, 1));
             result += rhs.cstr();
@@ -131,6 +139,14 @@ namespace ulx {
         public: friend inline constexpr auto operator+(const char* lhs, const stablestr& rhs) -> stablestr {
             stablestr result(lhs);
             result += rhs.cstr();
+            return result;
+        }
+
+        public: template<typename T>
+        static inline constexpr auto from(T value) -> stablestr {
+            stablestr result;
+            auto [ptr, ec] = std::to_chars(result.str_array.data(), result.str_array.data() + size - 1, value);
+            *ptr = '\0';
             return result;
         }
 

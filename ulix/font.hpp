@@ -7,12 +7,12 @@
 namespace ulx {
     class font {
         pathstr font_name;
-        u32 font_size;
+        f32 font_size;
         color font_color;
     
         public: template<typename _pathstr = pathstr> 
             requires ulx::expect<_pathstr, pathstr>
-        inline font(pathstr&& name = "arial.ttf", u32 size = 16, color color = {255, 255, 255}
+        inline font(pathstr&& name = "arial.ttf", f32 size = 16, color color = {255, 255, 255}
         ): font_name(std::forward<_pathstr>(name)), font_size(size), font_color(color) {}
     
         public: inline constexpr auto operator==(const font&) const -> bool = default;
@@ -24,7 +24,7 @@ namespace ulx {
             return *this;
         }
 
-        public: inline auto size(u32 size) -> font& {
+        public: inline auto size(f32 size) -> font& {
             font_size = size;
             return *this;
         }
@@ -37,10 +37,10 @@ namespace ulx {
         }
 
         public: inline constexpr auto get_name() const -> const pathstr& { return font_name; }
-        public: inline constexpr auto get_size() const -> u32 { return font_size; }
+        public: inline constexpr auto get_size() const -> f32 { return font_size; }
         public: inline constexpr auto get_color() const -> const ulx::color& { return font_color; }
 
-        public: inline constexpr auto make(u32 size = 16, const ulx::color& color = ulx::color(255, 255, 255)) const -> font {
+        public: inline constexpr auto make(f32 size = 16, const ulx::color& color = ulx::color(255, 255, 255)) const -> font {
             return font(font_name.copy(), size, color);
         }
     };

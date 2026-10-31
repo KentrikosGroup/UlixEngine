@@ -5,6 +5,7 @@
 #include "../__inside_impl/vulkan_classes.hpp"
 #include "../color.hpp"
 #include "../log.hpp"
+#include <ulix/path.hpp>
 #include <filesystem>
 #include <glm/glm.hpp>
 #include <fstream>
@@ -151,8 +152,8 @@ namespace __uii::vkalg {
     }
 
     /* file ios */
-    inline auto read_cache(const ulx::pathstr& file_path) -> ulx::vec<char> {
-        std::ifstream file = std::ifstream(file_path.cstr(), std::ios::ate | std::ios::binary);
+    inline auto read_cache(const ulx::path& file_path) -> ulx::vec<char> {
+        std::ifstream file = std::ifstream(file_path.str().cstr(), std::ios::ate | std::ios::binary);
         if (!file.is_open()) ulx::log::err("Failed to read cache");
         size_t file_size = (size_t) file.tellg();
         ulx::vec<char> buffer = ulx::vec<char>(file_size);
@@ -162,15 +163,14 @@ namespace __uii::vkalg {
         return buffer;
     }
 
-    inline void write_cache(const ulx::pathstr& file_path, const ulx::vec<char>& buffer) {
-        std::ofstream file = std::ofstream(file_path.cstr(), std::ios::binary);
+    inline void write_cache(const ulx::path& file_path, const ulx::vec<char>& buffer) {
+        std::ofstream file = std::ofstream(file_path.str().cstr(), std::ios::binary);
         if (!file.is_open()) ulx::log::err("Failed to write cache");
         file.write(buffer.data(), buffer.size());
         file.close();
     }
 
-    inline void ensure_cache_exists(const ulx::pathstr& file_path) {
-        if (!std::filesystem::exists(file_path.cstr()))
-            write_cache(file_path, {});
+    inline void ensure_cache_exists(const ulx::path& file_path) {
+        if (!file_path.exists()) write_cache(file_path, {});
     }
 }

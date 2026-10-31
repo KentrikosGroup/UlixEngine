@@ -9,6 +9,7 @@
 #include "../__inside_impl/atlaspusher.hpp"
 #include "../scene.hpp"
 #include "../cursor.hpp"
+#include "ulix/path.hpp"
 #include <future>
 #include <mutex>
 
@@ -23,6 +24,8 @@ namespace ulx {
             u32 current_atlas_index = 1;
             u32 current_atlas_x = 0, current_atlas_y = 0;
             u32 current_atlas_max_height = 0;
+
+            auto save_texture_caches() -> void;
         
         /* tick callback & configs */
         public:
@@ -151,7 +154,8 @@ namespace ulx {
             vec<std::future<void>> pending_fns;
             std::mutex pending_mutex;
 
-            pathstr cache_file_path;
+            path cache_file_path;
+            path cache_path;
             u32 max_texture_count;
             stablestr<> application_id;
             u32 application_version;

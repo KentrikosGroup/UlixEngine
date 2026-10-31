@@ -2,7 +2,6 @@
 
 #include "callback.hpp"
 #include "cursor.hpp"
-#include "file.hpp"
 #include "font.hpp"
 #include "log.hpp"
 #include "box.hpp"
@@ -14,6 +13,7 @@
 #include "pack.hpp"
 #include "__inside_impl/font_glyph_getter.hpp"
 #include "types.hpp"
+#include "ulix/path.hpp"
 #include "ulix/winfunc.hpp"
 #include <utility>
 #include <variant>
@@ -46,9 +46,9 @@ namespace ulx {
     class element {
         public: struct texture {
             using none = std::monostate;
-            using bitmap = ulx::file;
-            using vector = ulx::pack<ulx::file, ulx::size>;
-            using text = ulx::pack<ulx::u8char, ulx::font>;
+            using bitmap = path;
+            using vector = pack<path, size>;
+            using text = pack<u8char, font>;
             using variant = std::variant<none, bitmap, vector, text>;
         };
         
@@ -161,29 +161,29 @@ namespace ulx {
             return *this;
         }
 
-        public: template<typename _file>
-            requires ulx::expect<_file, file>
-        inline constexpr auto texture(_file&& bitmap) -> element& {
-            log::expect(bitmap.exists(), "element.hpp: namespace ulx: class element: texture(const ulx::file&): file.exists() == false");
-            texturev.emplace<texture::bitmap>(std::forward<_file>(bitmap));
+        public: template<typename _path>
+            requires ulx::expect<_path, path>
+        inline constexpr auto texture(_path&& bitmap) -> element& {
+            log::expect(bitmap.exists(), "element.hpp: namespace ulx: class element: texture(_path&&): bitmap.exists() == false");
+            texturev.emplace<texture::bitmap>(std::forward<_path>(bitmap));
             return *this;
         }
 
-        public: template<typename _file, typename _size>
-            requires ulx::expect<_file, file> && ulx::expect<_size, ulx::size>
-        inline constexpr auto texture(_file&& svg, _size&& size) -> element& {
-            log::expect(svg.exists(), "element.hpp: namespace ulx: class element: texture(const ulx::file&, const ulx::size&): svg.exists() == false");
-            texturev.emplace<texture::vector>(std::forward<_file>(svg), std::forward<_size>(size));
+        public: template<typename _path, typename _size>
+            requires ulx::expect<_path, path> && ulx::expect<_size, ulx::size>
+        inline constexpr auto texture(_path&& svg, _size&& size) -> element& {
+            log::expect(svg.exists(), "element.hpp: namespace ulx: class element: texture(_path&&, _size&&): svg.exists() == false");
+            texturev.emplace<texture::vector>(std::forward<_path>(svg), std::forward<_size>(size));
             return *this;
         }
 
-        public: template<typename _file>
-            requires ulx::expect<_file, file>
-        inline constexpr auto icon(strvw id, _file&& svg, const ulx::size& size) -> element& {
+        public: template<typename _path>
+            requires ulx::expect<_path, path>
+        inline constexpr auto icon(strvw id, _path&& svg, const ulx::size& s) -> element& {
             child(element().style({
                 .background = ulx::color::empty(),
                 .corner = 0, .borderw = 0
-            }).size(size).pos(ulx::point::center_to(size, siz)).texture(std::forward<_file>(svg), size));
+            }).size(s).pos(ulx::point::center_to(s, siz)).texture(std::forward<_path>(svg), s));
             return *this;
         }
 

@@ -1,7 +1,7 @@
 #pragma once
 #include <cmath>
 
-namespace ulx::eas {
+namespace ulx {
     inline static constexpr float in2(float t) {
         return t * t;
     }

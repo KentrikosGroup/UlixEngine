@@ -11,7 +11,7 @@
 #define event_hovered
 #define event_clicked
 
-namespace ulx::wst {
+namespace ulx {
     class gradcolor {
         color current_color;
         color start_color;
@@ -32,7 +32,7 @@ namespace ulx::wst {
                 
         public: template<typename _color>
             requires ulx::expect<_color, color>
-        inline constexpr auto to(_color&& target, u64 duration, const easing_callback& easing = eas::inout2) -> color {
+        inline constexpr auto to(_color&& target, u64 duration, const easing_callback& easing = inout2) -> color {
             if (!animating || target != target_color) {
                 start_color = current_color;
                 target_color = target;

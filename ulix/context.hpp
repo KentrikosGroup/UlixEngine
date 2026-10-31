@@ -6,14 +6,11 @@
 #include "ulix/font.hpp"
 #include "vulkan/vulkan_core.h"
 #include <future>
-#include <intsafe.h>
-#include <winuser.h>
 #define NOMINMAX
 #define WIN32_LEAN_AND_MEAN
 #define VK_USE_PLATFORM_WIN32_KHR
 #include "align.hpp"
 #include "cursor.hpp"
-#include "file.hpp"
 #include "box.hpp"
 #include "pixmap.hpp"
 #include "point.hpp"
@@ -433,8 +430,8 @@ inline auto ulx::context::create_window(const wininfo& window_info, const appinf
     str window_title = window_info.get_window_title();
     wstr window_wide_class_name = wstr(window_class_name.begin(), window_class_name.end());
     wstr window_wide_title = wstr(window_title.begin(), window_title.end());
-    file icon_file_path = app_info.get_icon_file_path();
-    pathstr icon_file_path_str = icon_file_path.path();
+    path icon_file_path = app_info.get_icon_file_path();
+    pathstr icon_file_path_str = icon_file_path.str();
     wstr window_wide_icon = wstr(icon_file_path_str.begin(), icon_file_path_str.end());
 
     ulx::size window_size = window_info.get_initial_window_size();
@@ -521,7 +518,10 @@ inline constexpr ulx::context::context(const appinfo& application_info, const wi
     create_vulkan_objects(application_info, render_info);
 }
 
-inline ulx::context::~context() { destroy_vulkan_objects(); }
+inline ulx::context::~context() { 
+    destroy_vulkan_objects(); 
+    save_texture_caches();
+}
 
 inline auto ulx::context::exec() -> int {
     MSG msg{}; while (true) {
@@ -924,8 +924,8 @@ inline auto ulx::context::create_graphics_pipeline() -> void {
         "context.hpp: ulx::context::create_graphics_pipeline(): vkCreatePipelineLayout() != VK_SUCCESS");
 
 
-    __uii::vkalg::ensure_cache_exists(cache_file_path);
-    vec<char> cache_data = __uii::vkalg::read_cache(cache_file_path);
+    __uii::vkalg::ensure_cache_exists(cache_file_path.str());
+    vec<char> cache_data = __uii::vkalg::read_cache(cache_file_path.str());
     VkPipelineCacheCreateInfo pipeline_cache_create_info{};
     pipeline_cache_create_info.sType = VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO;
     pipeline_cache_create_info.initialDataSize = cache_data.size();
@@ -961,7 +961,7 @@ inline auto ulx::context::create_graphics_pipeline() -> void {
     vkGetPipelineCacheData(logical_device, pipeline_cache, &cache_data_size, nullptr);
     new_cache_data.resize(cache_data_size);
     vkGetPipelineCacheData(logical_device, pipeline_cache, &cache_data_size, new_cache_data.data());
-    __uii::vkalg::write_cache(cache_file_path, new_cache_data);
+    __uii::vkalg::write_cache(cache_file_path.str(), new_cache_data);
     vkDestroyPipelineCache(logical_device, pipeline_cache, nullptr);
     vkDestroyShaderModule(logical_device, fragment_shader_module, VK_NULL_HANDLE);
     vkDestroyShaderModule(logical_device, vertex_shader_module, VK_NULL_HANDLE);
@@ -1554,6 +1554,14 @@ inline auto ulx::context::create_texture_images() -> VkDeviceSize {
     return size;
 }
 
+inline auto ulx::context::save_texture_caches() -> void {
+    u32 i = 0;
+    for (auto& pixmap : texture_image_pixmaps) {
+        pixmap.save(cache_path.with("texture_cache_" + pathstr::from(i) + ".png"));
+        i++;
+    }
+}
+
 inline auto ulx::context::destroy_vulkan_objects() -> void {
     vkDeviceWaitIdle(logical_device);
 
@@ -1603,7 +1611,8 @@ inline auto ulx::context::destroy_vulkan_objects() -> void {
 inline auto ulx::context::create_vulkan_objects(const appinfo& application_info, const renderinfo& render_info) -> void {
     renderer = render_info.get_render_callback();
     texture_image_pixmaps = { __uii::vkalg::empty_pixmap(), pixmap(2048, 2048) };
-    cache_file_path = application_info.get_pipeline_cache_file_path().path();
+    cache_file_path = application_info.get_cache_dir().with("vkcache.bin");
+    cache_path = application_info.get_cache_dir();
     max_texture_count = render_info.get_max_texture_count();
     application_id = application_info.get_application_id();
     application_version = application_info.get_application_version();
