@@ -3,19 +3,24 @@
 #include "types.hpp"
 #include "stablestr.hpp"
 #include "requires.hpp"
+#include "ulix/autohasher.hpp"
 
 namespace ulx {
     class font {
         pathstr font_name;
         f32 font_size;
         color font_color;
-    
-        public: template<typename _pathstr = pathstr> 
-            requires ulx::expect<_pathstr, pathstr>
-        inline font(pathstr&& name = "arial.ttf", f32 size = 16, color color = {255, 255, 255}
-        ): font_name(std::forward<_pathstr>(name)), font_size(size), font_color(color) {}
-    
-        public: inline constexpr auto operator==(const font&) const -> bool = default;
+
+        public: template<typename _pathstr = pathstr, typename _color = color>
+            requires ulx::expect<_pathstr, pathstr> && expect<_color, color>
+        inline font(pathstr&& name = "arial.ttf", f32 size = 16, _color&& color = {255, 255, 255}
+        ): font_name(std::forward<_pathstr>(name)), font_size(size), font_color(std::forward<_color>(color)) {}
+
+        public: inline constexpr auto operator==(const font& other) const -> bool {
+            return font_name == other.font_name &&
+            font_size == other.font_size &&
+            font_color == other.font_color;
+        }
 
         public: template<typename _pathstr>
             requires ulx::expect<_pathstr, pathstr>
@@ -42,6 +47,15 @@ namespace ulx {
 
         public: inline constexpr auto make(f32 size = 16, const ulx::color& color = ulx::color(255, 255, 255)) const -> font {
             return font(font_name.copy(), size, color);
+        }
+    };
+}
+
+namespace std {
+    template<>
+    struct hash<ulx::font> {
+        size_t operator()(const ulx::font& f) const noexcept {
+            return ulx::make_hash(f.get_name(), f.get_size(), f.get_color());
         }
     };
 }

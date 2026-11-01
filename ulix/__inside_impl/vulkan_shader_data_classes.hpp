@@ -52,7 +52,7 @@ namespace __uii::vsdces {
         }
     };
 
-    struct push_constant {
+    struct pushconstant {
         glm::mat4 projection;
     };
 }

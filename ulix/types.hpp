@@ -24,10 +24,8 @@ namespace ulx {
         return chr::duration_cast<chrt::ms>(dur);
     }
 
-    #ifndef ULIXRELEASE
-        #define debug_msstart ulx::steady::now();
-        #define debug_msinfo(last_steady) ulx::info("{}", ulx::ms_cast(ulx::steady::now() - last_steady))
-    #endif
+    #define ulxdebug_msstart ulx::steady::now();
+    #define ulxdebug_msinfo(last_steady, inf) ulx::info("{}: {}", inf, ulx::ms_cast(ulx::steady::now() - last_steady))
     
 
     /* type keyword alias */

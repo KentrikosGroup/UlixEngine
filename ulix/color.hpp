@@ -1,5 +1,6 @@
 #pragma once
 #include "types.hpp"
+#include "ulix/autohasher.hpp"
 
 namespace ulx {
     class color {
@@ -23,5 +24,14 @@ namespace ulx {
         public: inline constexpr static auto empty() -> color { return color(0, 0, 0, 0); }
             
         public: inline constexpr auto operator==(const color& other) const -> bool = default;
+    };
+}
+
+namespace std {
+    template<>
+    struct hash<ulx::color> {
+        size_t operator()(const ulx::color& c) const noexcept {
+            return ulx::make_hash(c.red(), c.green(), c.blue(), c.alpha());
+        }
     };
 }

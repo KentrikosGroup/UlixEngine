@@ -6,7 +6,6 @@
 #include "../color.hpp"
 #include "../log.hpp"
 #include <ulix/path.hpp>
-#include <filesystem>
 #include <glm/glm.hpp>
 #include <fstream>
 

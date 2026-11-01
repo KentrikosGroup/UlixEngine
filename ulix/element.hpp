@@ -51,7 +51,7 @@ namespace ulx {
             using text = pack<u8char, font>;
             using variant = std::variant<none, bitmap, vector, text>;
         };
-        
+
         public: struct event {
             using callback = ulx::callback<void(element&)>;
             using mouse = ulx::callback<void(context&, element&)>;
@@ -85,7 +85,7 @@ namespace ulx {
         inline constexpr element(strvw id, const str& txt, _font&& font = ulx::font()): id_(id) {
             auto metrics = __uii::fgg::line_metrics(font);
             f32 height = static_cast<f32>(ulx::wfn::logical(metrics.template get<2>(), window_dpi));
-            
+
             size({0, height});
             align(ulx::alignleft | ulx::aligntop);
             box(ulx::horbox).pad(0);
@@ -93,7 +93,7 @@ namespace ulx {
             for (ulx::u64 i = 0; i < txt.size(); ) {
                 ulx::u32 cp = __uii::fgg::decode_utf8(txt, i);
                 ulx::u8char glyph_str;
-                
+
                 if (cp < 0x80) {
                     glyph_str += static_cast<char>(cp);
                 } else if (cp < 0x800) {
@@ -300,6 +300,22 @@ namespace ulx {
 
         inline static constexpr auto unbordered(ulx::strvw id) -> element {
             return element(id).corner(0).border(0);
+        }
+    };
+}
+
+namespace std {
+    template<>
+    struct hash<ulx::element::texture::vector> {
+        size_t operator()(const ulx::element::texture::vector& v) const noexcept {
+            return make_hash(v.get<0>(), v.get<1>());
+        }
+    };
+
+    template<>
+    struct hash<ulx::element::texture::text> {
+        size_t operator()(const ulx::element::texture::text& t) const noexcept {
+            return make_hash(t.get<0>(), t.get<1>());
         }
     };
 }

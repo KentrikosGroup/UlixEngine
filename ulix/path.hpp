@@ -1,4 +1,5 @@
 #pragma once
+#include "ulix/autohasher.hpp"
 #pragma once
 #include "requires.hpp"
 #include "stablestr.hpp"
@@ -9,7 +10,7 @@
 namespace ulx {
     class path {
         pathstr m_path;
-    
+
         public: inline constexpr path() = default;
 
         public: template<typename _pathstr>
@@ -18,7 +19,7 @@ namespace ulx {
         public: inline constexpr path(std::filesystem::path&& path): m_path(std::move(path.string())) { correct_path(); }
         public: inline constexpr path(const std::filesystem::path& path): m_path(path.string()) { correct_path(); }
         public: inline constexpr auto operator==(const path& other) const -> bool = default;
-    
+
         public: inline constexpr auto read_string() const -> str {
             std::ifstream file_handle = std::ifstream(m_path.cstr());
             return ulx::str(std::istreambuf_iterator<char>(file_handle), std::istreambuf_iterator<char>());
@@ -36,16 +37,16 @@ namespace ulx {
         private: inline constexpr auto withps(const pathstr& subpath) const -> path {
             const char* cur = m_path.cstr();
             const char* sub = subpath.cstr();
-            
-            if (!cur || !sub || *sub == '\0') return *this;       
+
+            if (!cur || !sub || *sub == '\0') return *this;
             while (*sub == '/' || *sub == '\\') ++sub;
-            
+
             size_t cur_len = strlen(cur);
             bool need_sep = (cur_len > 0 && cur[cur_len - 1] != '\\');
             pathstr result_str = m_path;
             if (need_sep) result_str += '\\';
             result_str += sub;
-            
+
             return path(result_str);
         }
 
@@ -55,18 +56,28 @@ namespace ulx {
             ((result = result.withps(std::forward<Args>(args))), ...);
             return result;
         }
-            
+
+        public: inline auto write(const ulx::str& content) const -> void {
+            std::ofstream file_handle(m_path.cstr(), std::ios::binary);
+            file_handle.write(content.c_str(), content.length());
+        }
+
+        public: inline auto write(const bytes& content) const -> void {
+            std::ofstream file_handle(m_path.cstr(), std::ios::binary);
+            file_handle.write(reinterpret_cast<const char*>(content.data()), content.size());
+        }
+
         private: inline constexpr auto correct_path() -> void {
             char* start = m_path.cstr();
             char* s = start;
             if (!s) return;
-                
+
             while (*s && isspace(*s)) ++s;
             if (*s == '\0') { start[0] = '\0'; return; }
-            
+
             char* end = s + strlen(s) - 1;
             while (end > s && isspace(*end)) --end;
-            
+
             size_t o = 0;
             bool net = (s[0] == '/' || s[0] == '\\') && (s[1] == '/' || s[1] == '\\');
             if (net) {
@@ -74,7 +85,7 @@ namespace ulx {
                 s += 2;
                 while (s <= end && (*s == '/' || *s == '\\')) ++s;
             }
-            
+
             while (s <= end) {
                 if (*s == '/' || *s == '\\') {
                     start[o++] = '\\';
@@ -84,26 +95,26 @@ namespace ulx {
                     start[o++] = *s++;
                 }
             }
-            
+
             if (o > 0 && start[o-1] == '\\') {
                 bool keep = (o == 3 && start[1] == ':') || (net && o == 2);
                 if (!keep) o--;
             }
-            
+
             start[o] = '\0';
         }
 
         public: inline constexpr auto parent() const -> path {
             const char* cur = m_path.cstr();
             if (!cur || *cur == '\0') return *this;
-            
+
             size_t len = m_path.len();
             size_t pos = len;
             while (pos > 0) {
                 --pos;
                 if (cur[pos] == '\\') break;
             }
-            
+
             if (pos == 0 && cur[pos] != '\\') return path();
             if (pos == 1 && cur[0] == '\\' && cur[1] == '\\') {
                 size_t pos2 = len;
@@ -113,13 +124,21 @@ namespace ulx {
                 }
                 if (pos2 > 2) pos = pos2;
             }
-            
+
             pathstr result_str = m_path;
             char* s = result_str.cstr();
             s[pos] = '\0';
-            
+
             return path(result_str);
         }
     };
 }
 
+namespace std {
+    template<>
+    struct hash<ulx::path> {
+        size_t operator()(const ulx::path& p) const noexcept {
+            return ulx::make_hash(p.str());
+        }
+    };
+}
