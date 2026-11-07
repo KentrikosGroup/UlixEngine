@@ -1,9 +1,7 @@
 #pragma once
-#include "ulix/autohasher.hpp"
-#pragma once
-#include "requires.hpp"
-#include "stablestr.hpp"
-#include "types.hpp"
+#include <ulix/requires.hpp>
+#include <ulix/stablestr.hpp>
+#include <ulix/types.hpp>
 #include <filesystem>
 #include <fstream>
 

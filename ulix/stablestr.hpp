@@ -2,6 +2,7 @@
 #include "log.hpp"
 #include "types.hpp"
 #include "ulix/autohasher.hpp"
+#include "ulix/requires.hpp"
 #include <cstring>
 
 namespace ulx {
@@ -9,26 +10,30 @@ namespace ulx {
     class stablestr {
         arr<char, size> str_array;
 
-        public: inline constexpr stablestr(strvw view = "") {
+        public: template<typename t_strvw = strvw>
+            requires expect<t_strvw, strvw>
+        inline constexpr stablestr(t_strvw view = "") {
+            strvw sview = strvw(view);
+            
             ulx::log::expect(size > 0, "stablestr.hpp: stablestr(): size: size must be at least 1");
-            auto len = std::min(view.size(), size - 1);
-            std::memcpy(str_array.data(), view.data(), len);
+            auto len = std::min(sview.size(), size - 1);
+            std::memcpy(str_array.data(), sview.data(), len);
             str_array[len] = '\0';
         }
 
-        public: inline constexpr stablestr(const char* c_str) {
-            ulx::log::expect(size > 0, "stablestr.hpp: stablestr(): size: size must be at least 1");
-            auto len = std::min(std::strlen(c_str), size - 1);
-            std::memcpy(str_array.data(), c_str, len);
-            str_array[len] = '\0';
-        }
+        // public: inline constexpr stablestr(const char* c_str) {
+        //     ulx::log::expect(size > 0, "stablestr.hpp: stablestr(): size: size must be at least 1");
+        //     auto len = std::min(std::strlen(c_str), size - 1);
+        //     std::memcpy(str_array.data(), c_str, len);
+        //     str_array[len] = '\0';
+        // }
 
-        public: inline constexpr stablestr(char* c_str) {
-            ulx::log::expect(size > 0, "stablestr.hpp: stablestr(): size: size must be at least 1");
-            auto len = std::min(std::strlen(c_str), size - 1);
-            std::memcpy(str_array.data(), c_str, len);
-            str_array[len] = '\0';
-        }
+        // public: inline constexpr stablestr(char* c_str) {
+        //     ulx::log::expect(size > 0, "stablestr.hpp: stablestr(): size: size must be at least 1");
+        //     auto len = std::min(std::strlen(c_str), size - 1);
+        //     std::memcpy(str_array.data(), c_str, len);
+        //     str_array[len] = '\0';
+        // }
 
         public: inline constexpr stablestr(const stablestr& other) {
             ulx::log::expect(size > 0, "stablestr.hpp: stablestr(): size: size must be at least 1");
@@ -37,7 +42,7 @@ namespace ulx {
             str_array[len] = '\0';
         }
 
-        public: inline constexpr stablestr(stablestr&& other) noexcept {
+        public: inline constexpr stablestr(stablestr&& other) {
             ulx::log::expect(size > 0, "stablestr.hpp: stablestr(): size: size must be at least 1");
             auto len = std::min(other.len(), size - 1);
             std::memcpy(str_array.data(), other.cstr(), len);
@@ -61,36 +66,53 @@ namespace ulx {
             return *this;
         }
 
-        public: inline constexpr auto operator=(strvw view) -> stablestr& {
-            auto len = std::min(view.size(), size - 1);
-            std::memcpy(str_array.data(), view.data(), len);
+        public: template<typename t_strvw = strvw>
+            requires expect<t_strvw, strvw>
+        inline constexpr auto operator=(t_strvw view) -> stablestr& {
+            strvw sview = strvw(view); 
+            
+            auto len = std::min(sview.size(), size - 1);
+            std::memcpy(str_array.data(), sview.data(), len);
             str_array[len] = '\0';
             return *this;
         }
 
-        public: inline constexpr auto operator=(const char* c_str) -> stablestr& {
-            auto len = std::min(std::strlen(c_str), size - 1);
-            std::memcpy(str_array.data(), c_str, len);
-            str_array[len] = '\0';
-            return *this;
-        }
+        // public: inline constexpr auto operator=(const char* c_str) -> stablestr& {
+        //     auto len = std::min(std::strlen(c_str), size - 1);
+        //     std::memcpy(str_array.data(), c_str, len);
+        //     str_array[len] = '\0';
+        //     return *this;
+        // }
 
-        public: inline constexpr auto operator=(char* c_str) -> stablestr& {
-            auto len = std::min(std::strlen(c_str), size - 1);
-            std::memcpy(str_array.data(), c_str, len);
-            str_array[len] = '\0';
-            return *this;
-        }
+        // public: inline constexpr auto operator=(char* c_str) -> stablestr& {
+        //     auto len = std::min(std::strlen(c_str), size - 1);
+        //     std::memcpy(str_array.data(), c_str, len);
+        //     str_array[len] = '\0';
+        //     return *this;
+        // }
 
         public: inline constexpr auto operator!() -> bool {
             return strvw(str_array) == "";
         }
 
-        public: inline constexpr auto operator+=(strvw view) -> stablestr& {
+        public: template<typename t_strvw>
+            requires expect<t_strvw, strvw>
+        inline constexpr auto operator+=(t_strvw view) -> stablestr& {
+            strvw sview = strvw(view);
+            
             auto cur_len = std::strlen(cstr());
             auto remaining = size - cur_len - 1;
-            auto copy_len = std::min(view.size(), remaining);
-            std::memcpy(str_array.data() + cur_len, view.data(), copy_len);
+            auto copy_len = std::min(sview.size(), remaining);
+            std::memcpy(str_array.data() + cur_len, sview.data(), copy_len);
+            str_array[cur_len + copy_len] = '\0';
+            return *this;
+        }
+
+        public: inline constexpr auto operator+=(const stablestr& str) -> stablestr& {
+            auto cur_len = std::strlen(cstr());
+            auto remaining = size - cur_len - 1;
+            auto copy_len = std::min(str.len(), remaining);
+            std::memcpy(str_array.data() + cur_len, str.cstr(), copy_len);
             str_array[cur_len + copy_len] = '\0';
             return *this;
         }
@@ -104,9 +126,13 @@ namespace ulx {
             return *this;
         }
 
-        public: inline constexpr auto operator+(strvw view) const -> stablestr {
+        public: template<typename t_strvw>
+            requires expect<t_strvw, strvw>
+        inline constexpr auto operator+(t_strvw view) const -> stablestr {
+            strvw sview = strvw(view);
+            
             stablestr result(*this);
-            result += view;
+            result += sview;
             return result;
         }
 
@@ -120,11 +146,11 @@ namespace ulx {
             return *this + other.cstr();
         }
 
-        public: inline constexpr auto operator+(const char* cstr) const -> stablestr {
-            stablestr result(*this);
-            result += strvw(cstr);
-            return result;
-        }
+        // public: inline constexpr auto operator+(const char* cstr) const -> stablestr {
+        //     stablestr result(*this);
+        //     result += strvw(cstr);
+        //     return result;
+        // }
 
         public: friend inline constexpr auto operator+(char lhs, const stablestr& rhs) -> stablestr {
             stablestr result(strvw(&lhs, 1));

@@ -3,8 +3,15 @@
 // Win32
 #pragma comment(lib, "user32.lib")
 #pragma comment(lib, "gdi32.lib")
-#pragma comment(lib, "vulkan-1.lib")
 #pragma comment(lib, "ole32.lib")
+
+// Vulkan
+#pragma comment(lib, "vulkan-1.lib")
+
+// Direct3D
+#pragma comment(lib, "dxgi.lib")
+#pragma comment(lib, "d3d11.lib")
+#pragma comment(lib, "dxguid.lib")
 
 // Resvg
 #pragma comment(lib, "resvg.lib")

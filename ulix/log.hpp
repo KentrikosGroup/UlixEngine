@@ -1,14 +1,12 @@
 #pragma once
 
-#include "types.hpp"
-#include "vulkan/vulkan_core.h"
-#include <concepts>
+#include <ulix/types.hpp>
 #include <format>
-#include <intsafe.h>
 #include <print>
 #define NOMINMAX
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
+#include <vulkan/vulkan_core.h>
 
 #ifndef ULIXRELEASE
 namespace ulx::log {
@@ -69,7 +67,7 @@ namespace ulx::log {
     }
     
     template<typename... Args> [[noreturn]] inline constexpr void err(const char* format, Args&&... args) {
-        std::println("ulix: \x1b[91merror:\x1b[0m {}, maybe you can submit an issue to https://github.com/KentrikosGroup/UlixEngine.", std::vformat(format, std::make_format_args(args...)));
+        std::println("ulix: \x1b[91merror:\x1b[0m {}", std::vformat(format, std::make_format_args(args...)));
         std::_Exit(-1);
     }
 
@@ -84,7 +82,7 @@ namespace ulx::log {
     template<typename... Args> inline constexpr void vk(VkResult result, const char* format, Args&&... args) {
         if (result != VK_SUCCESS) {
             ulx::str error_code = std::format("VkResult: {} ({})", static_cast<ulx::u32>(result), vkresult_to_string(result));
-            std::println("ulix: \x1b[91merror:\x1b[0m {}, {}, maybe you can submit an issue to https://github.com/KentrikosGroup/UlixEngine.", std::vformat(format, std::make_format_args(args...)), error_code);
+            std::println("ulix: \x1b[91merror:\x1b[0m {}, {}. (https://github.com/KentrikosGroup/UlixEngine)", std::vformat(format, std::make_format_args(args...)), error_code);
             std::_Exit(-1);
         }
     }
@@ -92,13 +90,14 @@ namespace ulx::log {
     template<typename... Args> inline constexpr void hr(HRESULT result, const char* format, Args&&... args) {
         if (FAILED(result)) {
             ulx::str error_code = std::format("HRESULT: {}", static_cast<ulx::u32>(result));
-            std::println("ulix: \x1b[91merror:\x1b[0m {}, {}, maybe you can submit an issue to https://github.com/KentrikosGroup/UlixEngine.", std::vformat(format, std::make_format_args(args...)), error_code);
+            std::println("ulix: \x1b[91merror:\x1b[0m {}, {}. (https://github.com/KentrikosGroup/UlixEngine)", std::vformat(format, std::make_format_args(args...)), error_code);
             std::_Exit(-1);
         }
     }
 
     template<typename... Args>
-    inline constexpr void warn(const char* format, Args&&... args) {
+    inline constexpr void warn(bool condition, const char* format, Args&&... args) {
+        if (!condition)
         std::println("ulix: \x1b[93mwarning:\x1b[0m {}", std::vformat(format, std::make_format_args(args...)));
     }
 }

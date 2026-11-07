@@ -3,12 +3,15 @@
 #include "../types.hpp"
 #include "../font.hpp"
 #include "../__required_libraries/freetype/freetype.hpp"
+#include "ulix/__required_libraries/freetype/freetype/fttypes.h"
 #include "ulix/pack.hpp"
 #include "ulix/path.hpp"
 #include "ulix/stablestr.hpp"
 #include "ulix/winfunc.hpp"
 
 namespace __uii::fgg {
+    constexpr ulx::strvw reps = "(https://github.com/freetype/freetype, https://github.com/KentrikosGroup/UlixEngine)";
+    
     inline static UINT window_dpi;
     inline static auto is_fullwidth_punct(ulx::u32 cp) -> bool {
         return (cp >= 0x3001 && cp <= 0x3002) ||                                                  // 、。
@@ -35,15 +38,17 @@ namespace __uii::fgg {
     inline static ulx::hashmap<ulx::font, ulx::f32> font_to_max_h;
     inline static ulx::hashmap<ulx::pathstr, font_data> font_cache;
     inline static FT_Library ft_library = nullptr;
-    struct _init_struct {
-        inline constexpr _init_struct() {
-            ulx::log::expect(FT_Init_FreeType(&ft_library) == 0, "__inside_impl/font_glyph_getter.hpp: namespace __uii::fgg: struct _init_struct: _init_struct(): FT_Init_FreeType() != 0 (FreeType)");
+    struct init {
+        inline constexpr init() {
+            FT_Error error_code = FT_Init_FreeType(&ft_library);
+            ulx::log::expect(error_code == 0,
+                "Freetype initialization failed, error code: {}. {}", 
+                error_code, reps);
         }
-    } inline static _init;
+    } inline static exec_init;
 
     inline static auto load(const ulx::font& font) -> FT_Face {
         ulx::pathstr name = font.get_name();
-
         auto it = font_cache.find(name);
         if (it != font_cache.end())
             return it->second.face;
@@ -53,10 +58,14 @@ namespace __uii::fgg {
             font_path = "C:\\Windows\\Fonts\\" + name;
 
         ulx::path font_file(font_path);
-        ulx::log::expect(font_file.exists(), "__inside_impl/font_glyph_getter.hpp: namespace __uii::fgg: load(const ulx::font&): font_file.exists() == false (FreeType)");
+        ulx::log::warn(font_file.exists(), 
+            "file {} doesn't exists, fall back to C:\\Windows\\Fonts\\arial.ttf. (https://github.com/KentrikosGroup/UlixEngine)",
+            name.cstr(), reps);
+        if (!font_file.exists()) font_file = "C:\\Windows\\Fonts\\arial.ttf";
 
         ulx::bytes bytes = font_file.read_bytes();
-        ulx::log::expect(!bytes.empty(), "__inside_impl/font_glyph_getter.hpp: namespace __uii::fgg: load(const ulx::font&): bytes.empty() == true (FreeType)");
+        ulx::log::expect(!bytes.empty(), 
+            "the data of file {} is empty. (https://github.com/KentrikosGroup/UlixEngine)", font_file.str().cstr());
 
         FT_Face face = nullptr;
         int face_index = 0;
@@ -64,15 +73,16 @@ namespace __uii::fgg {
             bytes[1] == 't' && bytes[2] == 'c' && 
             bytes[3] == 'f') face_index = 0;
 
-        ulx::log::expect(FT_New_Memory_Face(ft_library, bytes.data(), static_cast<FT_Long>(bytes.size()), face_index, &face) == 0, 
-            "__inside_impl/font_glyph_getter.hpp: namespace __uii::fgg: load(const ulx::font&): FT_New_Memory_Face() != 0");
+        FT_Error error_code = FT_New_Memory_Face(ft_library, bytes.data(), static_cast<FT_Long>(bytes.size()), face_index, &face);
+        ulx::log::expect(error_code == 0, 
+            "create new memory face failed, the data of file {} may have been corrupted, error code: {}. {}", 
+            font_file.str().cstr(), error_code, reps);
 
-        // FT_Set_Pixel_Sizes(face, 0, font.get_size());
-        FT_Set_Char_Size(face, 0, font.get_size() * 64, 0, 0);
+        FT_Set_Char_Size(face, 0, font.get_size() * 64.0f, 0, 0);
         font_data data { std::move(bytes), face };
 
         return font_cache.emplace(name, std::move(data)).first->second.face;
-    }
+    } // HERE
 
     inline static auto get_char_glyph(const ulx::font& font, ulx::u32 codepoint) -> char_glyph {
         FT_Face face = load(font);

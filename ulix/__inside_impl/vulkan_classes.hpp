@@ -4,7 +4,6 @@
 #define VK_USE_PLATFORM_WIN32_KHR
 #include "../types.hpp"
 #include "../log.hpp"
-#include "../present_mode.hpp"
 #include <windows.h>
 #include <vulkan/vulkan.h>
 #include <optional>
@@ -45,66 +44,9 @@ namespace __uii::vkclses {
             }
         }
 
-        inline auto select_present_mode(ulx::present_mode pmode) -> VkPresentModeKHR {
-            switch (pmode) {
-                case ulx::present_mode::immediatemode:
-                    return VK_PRESENT_MODE_IMMEDIATE_KHR;
-                case ulx::present_mode::prefer_mailmode:
-                    for (const auto& mode : present_modes) {
-                        if (mode == VK_PRESENT_MODE_MAILBOX_KHR) {
-                            return mode;
-                        }
-                    } return VK_PRESENT_MODE_FIFO_KHR;
-                case ulx::present_mode::fifomode:
-                    return VK_PRESENT_MODE_FIFO_KHR;
-            }
-        }
-
         inline auto is_adequate() -> bool {
             return !surface_formats.empty() &&
                     !present_modes.empty();
-        }
-
-        inline auto select_surface_format() -> VkSurfaceFormatKHR {
-            for (const auto& format : surface_formats)
-                if (format.format == VK_FORMAT_B8G8R8A8_UNORM && format.colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR)
-                    return format;
-
-            return surface_formats[0];
-        }
-
-        inline auto select_extent(HWND window_hwnd) -> VkExtent2D {
-            if (surface_capabilities.currentExtent.width != std::numeric_limits<ulx::u32>::max()) {
-                return surface_capabilities.currentExtent;
-            } else {
-                RECT window_rect;
-                GetWindowRect(window_hwnd, &window_rect);
-
-                VkExtent2D actual_extent = {
-                    static_cast<ulx::u32>(window_rect.right - window_rect.left),
-                    static_cast<ulx::u32>(window_rect.bottom - window_rect.top)
-                };
-
-                actual_extent.width = std::clamp(actual_extent.width, surface_capabilities.minImageExtent.width, surface_capabilities.maxImageExtent.width);
-                actual_extent.height = std::clamp(actual_extent.height, surface_capabilities.minImageExtent.height, surface_capabilities.maxImageExtent.height);
-
-                return actual_extent;
-            }
-        }
-
-        inline auto select_present_mode(ulx::present_mode pmode, const std::vector<VkPresentModeKHR>& available_present_modes) -> VkPresentModeKHR {
-            switch (pmode) {
-                case ulx::present_mode::immediatemode:
-                    return VK_PRESENT_MODE_IMMEDIATE_KHR;
-                case ulx::present_mode::prefer_mailmode:
-                    for (const auto& mode : available_present_modes) {
-                        if (mode == VK_PRESENT_MODE_MAILBOX_KHR) {
-                            return mode;
-                        }
-                    } return VK_PRESENT_MODE_FIFO_KHR;
-                case ulx::present_mode::fifomode:
-                    return VK_PRESENT_MODE_FIFO_KHR;
-            }
         }
     };
 
@@ -283,16 +225,16 @@ namespace __uii::vkclses {
         }
     };
 
-    struct texture_image {
-        VkImage image;
-        VkImageView image_view;
+    struct image {
+        VkImage m_image;
+        VkImageView m_image_view;
 
-        inline texture_image() = default;
+        inline image() = default;
         inline auto release(VkDevice device) -> void {
-            vkDestroyImageView(device, image_view, VK_NULL_HANDLE);
-            vkDestroyImage(device, image, VK_NULL_HANDLE);
-            image = VK_NULL_HANDLE;
-            image_view = VK_NULL_HANDLE;
+            vkDestroyImageView(device, m_image_view, VK_NULL_HANDLE);
+            vkDestroyImage(device, m_image, VK_NULL_HANDLE);
+            m_image = VK_NULL_HANDLE;
+            m_image_view = VK_NULL_HANDLE;
         }
     };
 }

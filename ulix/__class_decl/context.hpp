@@ -6,16 +6,18 @@
 #include "../wininfo.hpp"
 #include "../__inside_impl/vulkan_classes.hpp"
 #include "../__inside_impl/vulkan_shader_data_classes.hpp"
-#include "../__inside_impl/atlaspusher.hpp"
+#include "../__inside_impl/atlas_texture_merger.hpp"
 #include "../scene.hpp"
 #include "../cursor.hpp"
 #include "ulix/path.hpp"
 #include "ulix/types.hpp"
-#include "vulkan/vulkan_core.h"
-#include <future>
-#include <mutex>
+#include <d3d11.h>
+#include <dxgi1_2.h>
+#include <wrl/client.h>
 
 namespace ulx {
+    template<typename t_dxobj> using dxptr = Microsoft::WRL::ComPtr<t_dxobj>;
+    
     class context {
         // texture caches
         private:
@@ -30,14 +32,14 @@ namespace ulx {
 
             auto save_texture_caches() -> void;
         
-        /* tick callback & configs */
+        // tick callback & configs
         public: using tickcallback = callback<void(context&, u64)>;
         private:
             time<steady> m_lasttime      = steady::now();
             tickcallback m_tickcallback;
             u64          m_delay         = 0;
 
-        /* render callback & vulkan datas & scene datas */
+        // render callback & vulkan datas & scene datas
         public: using rendercallback = renderinfo::render_callback;
         private:
             rendercallback m_rendercallback;
@@ -79,7 +81,7 @@ namespace ulx {
                 const element::event::hovered& hovered_event) -> bool;
             auto read_cache() -> void;
 
-        /* window handle & window configs & native window states */ 
+        // window handle & window configs & native window states 
         private:
             UINT m_mainwin_dpi; u32 m_native_titleh;
             
@@ -102,7 +104,7 @@ namespace ulx {
                  
             auto create_window(const wininfo& window_info, const appinfo& app_info) -> void;
 
-        /* window interfaces */
+        // window interfaces
         public:
             auto exec() -> int;
             auto exit() const -> void;
@@ -129,16 +131,13 @@ namespace ulx {
             auto win_min() -> void;
             auto win_restore() -> void;
 
-        /* vulkan datas & application states */
+        // vulkan objects & application states
         private:
             VkInstance                 m_vulkan_instance;
             VkDebugUtilsMessengerEXT   m_debug_messenger = VK_NULL_HANDLE;
             VkPhysicalDevice           m_physical_device = VK_NULL_HANDLE;
             VkDevice                   m_logical_device;
             VkSurfaceKHR               m_window_surface;
-            VkSwapchainKHR             m_swapchain;
-            VkFormat                   m_swapchain_image_format;
-            VkExtent2D                 m_swapchain_extent;
             VkRenderPass               m_render_pass;
             VkPipelineLayout           m_pipeline_layout;
             VkPipeline                 m_graphics_pipeline;
@@ -151,42 +150,36 @@ namespace ulx {
                                        m_index_size = 0, 
                                        m_texture_size = 0;
             VkDescriptorPool           m_descriptor_pool;
+            VkDeviceMemory             m_shared_memory      = VK_NULL_HANDLE;
+            VkFramebuffer              m_shared_framebuffer = VK_NULL_HANDLE;
+            HANDLE                     m_shared_handle      = nullptr;
 
             
-            __uii::vkclses::buffer               texture_buffer,
-                                                 vertex_buffer,
-                                                 index_buffer;
-            __uii::vkclses::physical_device_info physical_device_infos;
-            __uii::vkclses::device_queues        device_queues;
+            __uii::vkclses::buffer               m_texture_buffer,
+                                                 m_vertex_buffer,
+                                                 m_index_buffer;
+            __uii::vkclses::physical_device_info m_physical_device_infos;
+            __uii::vkclses::device_queues        m_device_queues;
+            __uii::vkclses::image                m_shared_image;
 
             
             vec<pixmap>                        m_texture_image_pixmaps;
             vec<VkDescriptorSet>               m_descriptor_sets;
-            vec<__uii::vkclses::texture_image> m_texture_images;
+            vec<__uii::vkclses::image>         m_texture_images;
             vec<VkCommandBuffer>               m_command_buffers;
             vec<VkSemaphore>                   m_image_available_semaphores;
             vec<VkFence>                       m_in_flight_fences;
-            vec<VkFramebuffer>                 m_swapchain_frame_buffers;
-            vec<VkImage>                       m_swapchain_images;
-            vec<VkImageView>                   m_swapchain_image_views;
-            vec<vec<VkFramebuffer>>            m_pending_framebuffers;
-            vec<vec<VkImageView>>              m_pending_image_views;
-            vec<VkSwapchainKHR>                m_pending_swapchains;
             vec<VkSemaphore>                   m_render_finished_semaphores;
             vec<vec<VkSemaphore>>              m_pending_semaphores;
             vec<VkDescriptorImageInfo>         m_descriptor_image_infos;
-
-            vec<std::future<void>> m_pending_tasks;
-            std::mutex             m_pending_mutex;
 
             path         m_cache_path;
             stablestr<>  m_appid;
             u32          m_appversion;
             bool         m_texture_pushtag = true;
-            u32          m_max_frames, 
+            u32          m_max_frames = 2,
                          m_current_frame = 0;
-            present_mode m_presentmode;
-        private:
+            
             auto render_frame() -> void;
             auto create_vulkan_objects(const appinfo& application_info, const renderinfo& render_info) -> void;
             auto destroy_vulkan_objects() -> void;
@@ -199,11 +192,6 @@ namespace ulx {
             auto select_physical_device() -> void;
             auto create_logical_device() -> void;
             auto create_window_surface() -> void;
-            auto create_swapchain(VkSwapchainKHR swapchain = VK_NULL_HANDLE) -> void;
-            auto destroy_swapchain() -> void;
-            auto recreate_swapchain() -> void;
-            auto get_swapchain_images() -> void;
-            auto create_swapchain_image_views() -> void;
             auto create_shader_module(unsigned char* code, unsigned int length) -> VkShaderModule;
             auto populate_pipeline_shader_stage_create_info(VkPipelineShaderStageCreateInfo& create_info, VkShaderModule shader_module, VkShaderStageFlagBits stage) -> void;
             auto create_graphics_pipeline() -> void;
@@ -231,6 +219,27 @@ namespace ulx {
             auto update_texture_descriptors() -> void;
             auto create_render_finished_semaphores() -> void;
             auto init_descriptor_image_infos() -> void;
+            auto create_shared_image() -> void;
+            auto allocate_shared_image_memory() -> void;
+            auto create_shared_image_view() -> void;
+            auto create_shared_framebuffer() -> void;
+
+
+        // DXGI objects
+        private:
+            ID3D11Device*           m_d3d_device             = nullptr;
+            ID3D11DeviceContext*    m_d3d_device_context     = nullptr;
+            IDXGISwapChain1*        m_swapchain              = nullptr;
+            ID3D11RenderTargetView* m_render_target_view     = nullptr;
+            ID3D11Texture2D*        m_shared_texture         = nullptr;
+            ID3D11RenderTargetView* m_shared_render_target_view         = nullptr;
+        
+            auto create_d3d_objects() -> void;
+            auto create_render_target_view() -> void;
+            auto create_swapchain() -> void;
+            auto check_shared_image_support() -> void;
+            auto resize_swapchain() -> void;
+            auto create_shared_texture() -> void;
 
         private:
             static auto WINAPI win32_process(HWND hwnd, UINT message, WPARAM wparam, LPARAM lparam) -> LRESULT;
