@@ -3,6 +3,7 @@
 #include "../types.hpp"
 #include "../font.hpp"
 #include "../__required_libraries/freetype/freetype.hpp"
+#include "ulix/__required_libraries/freetype/freetype/freetype.h"
 #include "ulix/__required_libraries/freetype/freetype/fttypes.h"
 #include "ulix/pack.hpp"
 #include "ulix/path.hpp"
@@ -47,6 +48,17 @@ namespace __uii::fgg {
         }
     } inline static exec_init;
 
+    inline static auto get_path(const ulx::font& font) -> ulx::pathstr {
+        ulx::pathstr font_path = font.get_name();
+        if (!ulx::path(font_path).exists())
+            font_path = "C:\\Windows\\Fonts\\" + font_path;
+
+        ulx::path font_file(font_path);
+        if (!font_file.exists()) font_file = "C:\\Windows\\Fonts\\arial.ttf";
+
+        return font_path;
+    }
+    
     inline static auto load(const ulx::font& font) -> FT_Face {
         ulx::pathstr name = font.get_name();
         auto it = font_cache.find(name);
@@ -78,17 +90,23 @@ namespace __uii::fgg {
             "create new memory face failed, the data of file {} may have been corrupted, error code: {}. {}", 
             font_file.str().cstr(), error_code, reps);
 
-        FT_Set_Char_Size(face, 0, font.get_size() * 64.0f, 0, 0);
+        error_code = FT_Set_Char_Size(face, 0, font.get_size() * 64.0f, 0, 0);
+        ulx::log::expect(error_code == 0, 
+            "set font char size failed, the font size {} may be incorrect, error code: {}. {}", 
+            font.get_size(), error_code, reps);
+        
         font_data data { std::move(bytes), face };
-
         return font_cache.emplace(name, std::move(data)).first->second.face;
-    } // HERE
+    }
 
     inline static auto get_char_glyph(const ulx::font& font, ulx::u32 codepoint) -> char_glyph {
         FT_Face face = load(font);
     
         FT_UInt glyph_index = FT_Get_Char_Index(face, codepoint);
-        ulx::log::expect(glyph_index != 0, "__inside_impl/font_glyph_getter.hpp: namespace __uii::fgg: get_char_glyph(const ulx::font&, ulx::u32): glyph_index == 0");
+        ulx::log::warn(glyph_index != 0, 
+            "get char index from codepoint failed, the codepoint {} may doesn't exist in the font file {}, the char will continue to be generated as ▯",
+            get_path(font));
+        glyph_index = FT_Get_Char_Index(face, 0x25AF);
     
         FT_Int32 load_flags = FT_LOAD_RENDER | FT_LOAD_TARGET_LCD;
         ulx::log::expect(FT_Load_Glyph(face, glyph_index, load_flags) == 0, "__inside_impl/font_glyph_getter.hpp: namespace __uii::fgg: get_char_glyph(const ulx::font&, ulx::u32): FT_Load_Glyph() != 0");
