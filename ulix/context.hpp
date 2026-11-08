@@ -2,6 +2,7 @@
 #include "__class_decl/context.hpp"
 #include "__inside_impl/atlas_texture_merger.hpp"
 #include "glm/ext/matrix_clip_space.hpp"
+#include "glm/ext/vector_float4.hpp"
 #include "stablestr.hpp"
 #include "ulix/__required_libraries/rapidjson/rapidjson.h"
 #include "ulix/font.hpp"
@@ -47,9 +48,10 @@ inline auto ulx::context::update_push_constant() -> void {
         -1.0f, 1.0f);
 }
 
-inline auto ulx::context::update_texture_images(ulx::size& siz, const element& object, u32& texture_index) -> __uii::ats::uv {
+inline auto ulx::context::update_texture_images(ulx::size& siz, const element& object, u32& texture_index, u8& elemtype) -> __uii::ats::uv {
     const element::texture::variant& texture_variant = object.get_texture();
     __uii::ats::uv resuv = {{0, 0}, {1, 1}};
+    elemtype = __uii::vsdces::normalelem;
 
     std::visit([&](auto&& arg) {
         using T = std::decay_t<decltype(arg)>;
@@ -57,6 +59,7 @@ inline auto ulx::context::update_texture_images(ulx::size& siz, const element& o
         if constexpr (std::same_as<T, element::texture::none>) {
             texture_index = 0;
         } else if constexpr (std::same_as<T, element::texture::bitmap>) {
+            elemtype = __uii::vsdces::pixmelem;
             auto it = m_bitmap_cache.find(arg);
             if (it != m_bitmap_cache.end()) {
                 texture_index = it->second.template get<0>();
@@ -74,6 +77,7 @@ inline auto ulx::context::update_texture_images(ulx::size& siz, const element& o
             if (siz.width() == -1) siz = {wfn::logical(uvsiz.width() * 2048, m_mainwin_dpi), siz.height()};
             if (siz.height() == -1) siz = {siz.width(), wfn::logical(uvsiz.height() * 2048, m_mainwin_dpi)};
         } else if constexpr (std::same_as<T, element::texture::vector>) {
+            elemtype = __uii::vsdces::svgelem;
             auto it = m_vector_cache.find(arg);
             if (it != m_vector_cache.end()) {
                 texture_index = it->second.template get<0>();
@@ -96,6 +100,7 @@ inline auto ulx::context::update_texture_images(ulx::size& siz, const element& o
             if (siz.width() == -1) siz = {wfn::logical(uvsiz.width() * 1024, m_mainwin_dpi), siz.height()};
             if (siz.height() == -1) siz = {siz.width(), wfn::logical(uvsiz.height() * 1024, m_mainwin_dpi)};
         } else if constexpr (std::same_as<T, element::texture::text>) {
+            elemtype = __uii::vsdces::charelem;
             auto it = m_font_cache.find(arg);
             if (it != m_font_cache.end()) {
                 texture_index = it->second.template get<0>();
@@ -123,7 +128,7 @@ inline auto ulx::context::push_element(
     const element& elem,
     const size& siz, const point& pos,
     u32& render_index, u32 texture_index,
-    __uii::ats::uv& uv
+    __uii::ats::uv& uv, u8 elemtype
 ) -> void {
     const color& background_color = elem.get_background_color();
     const color& border_color = elem.get_border_color();
@@ -134,7 +139,7 @@ inline auto ulx::context::push_element(
     f32 width = wfn::physical(siz.width(), m_mainwin_dpi);
     f32 height = wfn::physical(siz.height(), m_mainwin_dpi);
     glm::vec2 half_size = {width / 2.0f, height / 2.0f};
-    glm::vec2 center = {x + half_size.x + 0.5f, m_mainwin_height - (y + half_size.y) + 0.5f};
+    glm::vec2 center = {x + half_size.x, m_mainwin_height - (y + half_size.y) + 0.5f};
     glm::vec2 top_left = center - half_size;
     glm::vec2 top_right = {center.x + half_size.x, center.y - half_size.y};
     glm::vec2 bottom_right = center + half_size;
@@ -147,11 +152,12 @@ inline auto ulx::context::push_element(
     ulx::size& uvsiz = uv.get<1>();
     f32 uvw = uvsiz.width(), uvh = uvsiz.height();
 
+    glm::vec4 data = elem.get_data();
     m_vertices.insert(m_vertices.end(), {
-        {top_right,    background_color_vec, corner_radius, half_size, border_width, border_color_vec, center, {uvx + uvw, uvy + uvh}, texture_index},
-        {top_left,     background_color_vec, corner_radius, half_size, border_width, border_color_vec, center, {uvx, uvy + uvh},       texture_index},
-        {bottom_left,  background_color_vec, corner_radius, half_size, border_width, border_color_vec, center, {uvx, uvy},             texture_index},
-        {bottom_right, background_color_vec, corner_radius, half_size, border_width, border_color_vec, center, {uvx + uvw, uvy},       texture_index}});
+        {top_right,    background_color_vec, corner_radius, half_size, border_width, border_color_vec, center, {uvx + uvw, uvy + uvh}, texture_index, elemtype, data},
+        {top_left,     background_color_vec, corner_radius, half_size, border_width, border_color_vec, center, {uvx, uvy + uvh},       texture_index, elemtype, data},
+        {bottom_left,  background_color_vec, corner_radius, half_size, border_width, border_color_vec, center, {uvx, uvy},             texture_index, elemtype, data},
+        {bottom_right, background_color_vec, corner_radius, half_size, border_width, border_color_vec, center, {uvx + uvw, uvy},       texture_index, elemtype, data}});
     m_indices.insert(m_indices.end(), {
         render_index, render_index + 1, render_index + 2,
         render_index + 2, render_index + 3, render_index});
@@ -212,8 +218,8 @@ inline auto ulx::context::push_elements(
     for (auto& elem : elements) {
         ulx::size siz = elem.get_size();
         point pos = elem.get_pos();
-        u32 texture_index;
-        __uii::ats::uv uv = update_texture_images(siz, elem, texture_index);
+        u32 texture_index; u8 elemtype;
+        __uii::ats::uv uv = update_texture_images(siz, elem, texture_index, elemtype);
 
         if (siz.width() == -2) siz = {parent_size.width(), siz.height()};
         if (siz.height() == -2) siz = {siz.width(), parent_size.height()};
@@ -248,7 +254,7 @@ inline auto ulx::context::push_elements(
                 if (released_event.valid()) released_event(*this, elem);
             }
 
-            push_element(elem, siz, pos, render_index, texture_index, uv);
+            push_element(elem, siz, pos, render_index, texture_index, uv, elemtype);
         }
 
         vec<element> child_elements = elem.get_objects();
@@ -270,8 +276,8 @@ inline auto ulx::context::update_scene_objects() -> void {
     u32 render_index = 0;
     m_vertices.clear(); m_indices.clear();
     m_scene = m_rendercallback(*this);
-    vec<element>& objects = m_scene.get_objects();
-    m_background_color = m_scene.get_background_color();
+    vec<element>& objects = m_scene.get_elements();
+    m_background_color = m_scene.get_back_color();
 
     m_cursor = resetcur;
     f32 x_offset = 0, y_offset = 0;
@@ -547,8 +553,8 @@ inline auto ulx::context::create_window(const wininfo& window_info, const appinf
 
 inline constexpr ulx::context::context(const appinfo& application_info, const wininfo& window_info, const renderinfo& render_info) {
     m_cache_path = application_info.get_cache_dir();
-    read_cache();
     create_window(window_info, application_info);
+    read_cache();
     create_vulkan_objects(application_info, render_info);
     create_d3d_objects();
 }
@@ -1121,7 +1127,7 @@ inline auto ulx::context::resize_swapchain() -> void {
 
     while (IsIconic(m_mainwin)) {
         MsgWaitForMultipleObjects(0, NULL, FALSE, INFINITE, QS_ALLINPUT);
-        
+
         MSG msg;
         while (PeekMessageW(&msg, NULL, 0, 0, PM_REMOVE)) {
             TranslateMessage(&msg);
@@ -1257,16 +1263,16 @@ inline auto ulx::context::create_descriptor_pools() -> void {
 
 inline auto ulx::context::init_descriptor_image_infos() -> void {
     m_descriptor_image_infos = vec<VkDescriptorImageInfo>(255);
-    for (u64 index = 0; index < 255; index++) {
-        m_descriptor_image_infos[index].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-        m_descriptor_image_infos[index].imageView = m_texture_images[0].m_image_view;
-        m_descriptor_image_infos[index].sampler = m_texture_image_sampler;
+    for (u64 i = 0; i < 255; i++) {
+        m_descriptor_image_infos[i].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+        m_descriptor_image_infos[i].sampler = m_texture_image_sampler;
     }
 }
 
 inline auto ulx::context::update_texture_descriptors() -> void {
-    for (u64 index = 0; index < m_texture_images.size(); index++) {
-        m_descriptor_image_infos[index].imageView = m_texture_images[index].m_image_view;
+    for (u64 i = 0; i < 255; i++) {
+        u64 index = (i < m_texture_images.size())? i : 0;
+        m_descriptor_image_infos[i].imageView = m_texture_images[index].m_image_view;
     }
 
     for (u64 index = 0; index < m_max_frames; index++) {
@@ -1520,6 +1526,8 @@ inline auto ulx::context::save_texture_caches() -> void {
         atlas_cfg.AddMember("current_atlas_max_height", Value().SetUint(m_atlas_height), alloc);
     doc.AddMember("atlas_cfg", atlas_cfg, alloc);
 
+    doc.AddMember("mainwin_dpi", m_mainwin_dpi, alloc);
+
     StringBuffer buffer;
     PrettyWriter<StringBuffer> writer(buffer);
     doc.Accept(writer);
@@ -1554,6 +1562,11 @@ inline auto ulx::context::read_cache() -> void {
         if (doc.HasParseError() || !doc.IsObject()) {
             ulx::log::err("context.hpp: ulx::context::read_cache(): doc.HasParseError() == true || doc.IsObject() == false, maybe try clearing all the cache and then retry.");
         } else {
+            if (!doc.HasMember("mainwin_dpi") || !doc["mainwin_dpi"].IsUint() || doc["mainwin_dpi"] != m_mainwin_dpi) {
+                m_texture_image_pixmaps = { __uii::vkalg::empty_pixmap(), pixmap(2048, 2048) };
+                return;
+            }
+
             if (doc.HasMember("bitmap") && doc["bitmap"].IsObject()) {
                 auto bitmap_obj = doc["bitmap"].GetObject();
                 for (auto& member : bitmap_obj) {
@@ -1751,7 +1764,7 @@ inline auto ulx::context::create_shared_image_view() -> void {
 
 inline auto ulx::context::create_shared_framebuffer() -> void {
     constexpr ulx::strvw elocation = "context.hpp: namespace ulx: struct context: create_swapchain2():";
-    
+
     VkFramebufferCreateInfo framebuffer_create_info{};
     framebuffer_create_info.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
     framebuffer_create_info.renderPass = m_render_pass;
@@ -1762,7 +1775,7 @@ inline auto ulx::context::create_shared_framebuffer() -> void {
     framebuffer_create_info.layers = 1;
     log::vk(vkCreateFramebuffer(m_logical_device, &framebuffer_create_info, nullptr, &m_shared_framebuffer),
         "{} vkCreateFramebuffer(shared) != VK_SUCCESS", elocation);
-    
+
 }
 
 inline auto ulx::context::create_d3d_objects() -> void {

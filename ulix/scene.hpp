@@ -54,8 +54,8 @@ namespace ulx {
             }
     
         public:
-            inline auto get_objects() -> vec<element>& { return elements; }
-            inline auto get_background_color() const -> const color& { return background_color; }
+            inline auto get_elements() -> vec<element>& { return elements; }
+            inline auto get_back_color() const -> const color& { return background_color; }
             inline auto get_alignment() const -> u8 { return alignment; }
             inline auto get_padding() const -> u32 { return paddin; }
             inline auto get_layout() const -> ulx::box { return bx; }

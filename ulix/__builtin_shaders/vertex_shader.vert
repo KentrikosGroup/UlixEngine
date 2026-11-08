@@ -9,6 +9,8 @@ layout(location = 5) in vec4 in_border_color;
 layout(location = 6) in vec2 in_center;
 layout(location = 7) in vec2 in_uv;
 layout(location = 8) in uint in_tex_index;
+layout(location = 9) in uint in_elemtype;
+layout(location = 10) in vec4 in_data;
 
 layout(location = 0) out vec2 fragment_position;
 layout(location = 1) out vec4 fragment_color;
@@ -19,14 +21,16 @@ layout(location = 5) out vec4 fragment_border_color;
 layout(location = 6) out vec2 fragment_center;
 layout(location = 7) out vec2 fragment_uv;
 layout(location = 8) out uint fragment_tex_index;
+layout(location = 9) out uint fragment_elemtype;
+layout(location = 10) out vec4 fragment_data;
 
 
-layout(push_constant) uniform PushConstant {
+layout(push_constant) uniform pushconstant {
     mat4 projection;
-} push_constant;
+} pc;
 
 void main() {
-    gl_Position = push_constant.projection * vec4(in_position, 0.0, 1.0);
+    gl_Position = pc.projection * vec4(in_position, 0.0, 1.0);
 
     fragment_position = in_position;
     fragment_color = in_color;
@@ -37,4 +41,6 @@ void main() {
     fragment_uv = in_uv;
     fragment_tex_index = in_tex_index;
     fragment_center = in_center;
+    fragment_elemtype = in_elemtype;
+    fragment_data = in_data;
 }

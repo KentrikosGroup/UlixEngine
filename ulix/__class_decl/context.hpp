@@ -68,7 +68,7 @@ namespace ulx {
                 const element& elem, 
                 const size& siz, const point& pos, 
                 u32& render_index, u32 texture_index, 
-                __uii::ats::uv& uv) -> void;
+                __uii::ats::uv& uv, u8 elemtype) -> void;
             auto compute_layout(
                 size& siz, point& pos, 
                 const size& parent_size, const point& parent_pos, 
@@ -214,7 +214,7 @@ namespace ulx {
             auto push_texture_images() -> void;
             auto recreate_texture_buffer() -> void;
             auto create_texture_images() -> VkDeviceSize;
-            auto update_texture_images(ulx::size& siz, const element& object, u32& texture_index) -> __uii::ats::uv;
+            auto update_texture_images(ulx::size& siz, const element& object, u32& texture_index, u8& elemtype) -> __uii::ats::uv;
             auto create_descriptor_update_template() -> void;
             auto update_texture_descriptors() -> void;
             auto create_render_finished_semaphores() -> void;

@@ -20,8 +20,8 @@
 #ifndef FTLCDFIL_H_
 #define FTLCDFIL_H_
 
-#include <freetype/freetype.h>
-#include <freetype/ftparams.h>
+#include <ulix/__required_libraries/freetype/freetype/freetype.h>
+#include <ulix/__required_libraries/freetype/freetype/ftparams.h>
 
 #ifdef FREETYPE_H
 #error "freetype.h of FreeType 1 has been loaded!"

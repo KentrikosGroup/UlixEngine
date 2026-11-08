@@ -29,6 +29,7 @@ namespace ulx::wfn {
     inline static const UINT system_dpi = GetDpiForSystem();
     inline static const HINSTANCE hinstance = GetModuleHandleW(nullptr);
     inline static const UINT screen_width = screen_physical_width();
+    inline static const UINT screen_height = screen_physical_height();
 
     inline constexpr auto physical(ulx::f32 logical_pixels, UINT dpi = system_dpi) -> ulx::f32 {
         return logical_pixels * (static_cast<ulx::f32>(dpi) / 96.0f);

@@ -20,6 +20,11 @@ namespace ulx {
         public: inline constexpr auto green() const -> f32 { return g; }
         public: inline constexpr auto blue() const -> f32 { return b; }
         public: inline constexpr auto alpha() const -> f32 { return a; }
+            
+        public: inline constexpr auto red01() const -> f32 { return r / 255.0f; }
+        public: inline constexpr auto green01() const -> f32 { return g / 255.0f; }
+        public: inline constexpr auto blue01() const -> f32 { return b / 255.0f; }
+        public: inline constexpr auto alpha01() const -> f32 { return a / 255.0f; }
     
         public: inline constexpr static auto empty() -> color { return color(0, 0, 0, 0); }
             
