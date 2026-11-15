@@ -50,10 +50,10 @@ namespace ulx {
             float delta = static_cast<float>(elapsed) / static_cast<float>(duration);
             delta = easing(delta);
             current_color = {
-                start_color.red() + (target_color.red() - start_color.red()) * delta,
-                start_color.green() + (target_color.green() - start_color.green()) * delta,
-                start_color.blue() + (target_color.blue() - start_color.blue()) * delta,
-                start_color.alpha() + (target_color.alpha() - start_color.alpha()) * delta
+                start_color.r() + (target_color.r() - start_color.r()) * delta,
+                start_color.g() + (target_color.g() - start_color.g()) * delta,
+                start_color.b() + (target_color.b() - start_color.b()) * delta,
+                start_color.a() + (target_color.a() - start_color.a()) * delta
             };
 
             return current_color;

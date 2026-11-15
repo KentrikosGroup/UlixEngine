@@ -10,10 +10,6 @@
 #include <fstream>
 
 namespace __uii::vkalg {
-    inline static constexpr glm::vec4 color_to_vec4(const ulx::color& color) {
-        return glm::vec4(color.red1(), color.green1(), color.blue1(), color.alpha1());
-    }
-
     inline auto get_device_score(const __uii::vkclses::physical_device_info& device_infos) -> ulx::u32 {
         ulx::u64 device_local_bytes = 0;
         for (ulx::u32 index = 0; index < device_infos.memory_properties.memoryHeapCount; ++index) {

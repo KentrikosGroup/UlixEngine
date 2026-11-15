@@ -2,17 +2,17 @@
 #extension GL_EXT_nonuniform_qualifier: require
 
 layout(set = 0, binding = 0) uniform sampler2D u_textures[];
-layout(location = 0)         in vec2 fragment_position;
-layout(location = 1)         in vec4 fragment_color;
-layout(location = 2)         in float fragment_corner_radius;
-layout(location = 3)         in vec2 fragment_half_size;
-layout(location = 4)         in float fragment_border_width;
-layout(location = 5)         in vec4 fragment_border_color;
-layout(location = 6)         in vec2 fragment_center;
-layout(location = 7)         in vec2 fragment_uv;
+layout(location = 0)         in vec2      fragment_position;
+layout(location = 1)         in vec4      fragment_color;
+layout(location = 2)         in float     fragment_corner_radius;
+layout(location = 3)         in vec2      fragment_half_size;
+layout(location = 4)         in float     fragment_border_width;
+layout(location = 5)         in vec4      fragment_border_color;
+layout(location = 6)         in vec2      fragment_center;
+layout(location = 7)         in vec2      fragment_uv;
 layout(location = 8)         flat in uint fragment_tex_index;
 layout(location = 9)         flat in uint fragment_elemtype;
-layout(location = 10)        in vec4 fragment_data;
+layout(location = 10)        in vec4      fragment_data;
 layout(location = 0) out vec4 out_color;
 
 #define charelem 0
@@ -135,6 +135,90 @@ void normal_element() {
     out_color = vec4(color, total_alpha);
 }
 
+void shadow_element() {
+    // 帮我完成 shadow 部分代码
+    // Tips:
+    //     fragment_data.x        水平偏移量
+    //     fragment_data.y        垂直偏移量
+    //     fragment_data.z        内阴影 (需要转换成 bool)
+    //     fragment_corner_radius 圆角半径
+    //     fragment_border_width  模糊半径
+    //     fragment_color         颜色
+    //     注意是这么算的：fragment_border_width + center area (随便填不填色，反正不会显示到) + fragment_border_width
+    
+    bool inset = fragment_data.x > 0.5;
+    float blur_radius = fragment_border_width;
+    float corner_radius = fragment_corner_radius;
+    
+    vec2 local_pos = fragment_position - fragment_center;
+    float element_dist = rounded_box_sdf(local_pos, fragment_half_size, corner_radius);
+    float fw = fwidth(element_dist);
+    
+    float shadow_alpha;
+    if (inset) {
+        shadow_alpha = smoothstep(-fw, fw, -element_dist);
+        if (blur_radius > 0.0) {
+            float fade = element_dist / max(blur_radius, 1e-5);
+            shadow_alpha *= exp(-fade * fade * fragment_data.y);
+        }
+    } else {
+        shadow_alpha = 1.0 - smoothstep(-fw, fw, element_dist);
+        if (blur_radius > 0.0) {
+            float fade = -element_dist / max(blur_radius, 1e-5);
+            shadow_alpha *= 1.0 - exp(-fade * fade * fragment_data.y);
+        }
+    }
+    
+    vec3 shadow_color = fragment_color.rgb;
+    float final_alpha = shadow_alpha * fragment_color.a;
+    out_color = vec4(shadow_color * final_alpha, final_alpha);
+    
+    // old，这个正常运行
+    // float offset_x = fragment_data.x;
+    // float offset_y = fragment_data.y;
+    // bool inset = fragment_data.z > 0.5;
+    // float blur_radius = fragment_border_width;  // 这是模糊半径，不是阴影宽度
+    // float corner_radius = fragment_corner_radius;
+    
+    // // 带偏移的局部坐标
+    // vec2 local_pos = fragment_position - fragment_center - vec2(offset_x, offset_y);
+    
+    // // 元素本身的 SDF
+    // float element_dist = rounded_box_sdf(local_pos, fragment_half_size, corner_radius);
+    
+    // float fw = fwidth(element_dist);
+    // float shadow_alpha;
+    
+    // if (inset) {
+    //     // 内阴影：从边缘向内的渐变
+    //     shadow_alpha = smoothstep(-fw, fw, -element_dist);
+        
+    //     // 用模糊半径控制内阴影的衰减
+    //     if (blur_radius > 0.0) {
+    //         float fade = element_dist / max(blur_radius, 1e-5);
+    //         shadow_alpha *= clamp(1.0 + fade, 0.0, 1.0);
+    //     }
+    // } else {
+    //     // 外阴影：从边缘向外的渐变
+    //     shadow_alpha = 1.0 - smoothstep(-fw, fw, element_dist);
+        
+    //     // 用模糊半径控制外阴影的衰减
+    //     if (blur_radius > 0.0) {
+    //         float fade = -element_dist / max(blur_radius, 1e-5);
+    //         shadow_alpha *= clamp(fade, 0.0, 1.0);
+    //     }
+    // }
+    
+    // // 最终输出
+    // vec3 shadow_color = fragment_color.rgb;
+    // float final_alpha = shadow_alpha * fragment_color.a;
+    // out_color = vec4(shadow_color * final_alpha, final_alpha);
+}
+
 void main() {
+    if (fragment_elemtype == shadelem) {
+        shadow_element();
+        return;
+    }
     normal_element();
 }

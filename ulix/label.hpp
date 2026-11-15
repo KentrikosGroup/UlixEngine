@@ -1,6 +1,6 @@
 #pragma once
-#include "glm/ext/vector_float4.hpp"
 #include <ulix/element.hpp>
+#include <ulix/__inside_impl/font_glyph_getter.hpp>
 
 namespace ulx {
     class label: public element {
@@ -32,7 +32,7 @@ namespace ulx {
                     .texture(glyph_str, font)
                     .size(ulx::size::autos())
                     .border(0).corner(0).back(color::empty());
-                c.data(glm::vec4{color.red1(), color.green1(), color.blue1(), color.alpha1()});
+                c.data(glm::vec4{color.r1(), color.g1(), color.b1(), color.a1()});
                 child(c);
             }
         }

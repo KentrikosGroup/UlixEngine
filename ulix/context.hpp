@@ -75,8 +75,8 @@ inline auto ulx::context::update_texture_images(ulx::size& siz, const element& o
             }
 
             ulx::size uvsiz = resuv.get<1>();
-            if (siz.width() == -1) siz = {wfn::logical(uvsiz.width() * 2048), siz.height()};
-            if (siz.height() == -1) siz = {siz.width(), wfn::logical(uvsiz.height() * 2048)};
+            if (siz.w() == -1) siz = {wfn::logical(uvsiz.w() * 2048), siz.h()};
+            if (siz.h() == -1) siz = {siz.w(), wfn::logical(uvsiz.h() * 2048)};
         } else if constexpr (std::same_as<T, element::texture::vector>) {
             elemtype = __uii::vsdces::svgelem;
             auto it = m_vector_cache.find(arg);
@@ -86,8 +86,8 @@ inline auto ulx::context::update_texture_images(ulx::size& siz, const element& o
                 resuv = idx.get<1>();
             } else {
                 element::texture::vector vecarg = arg;
-                f32 width = vecarg.get<1>().width();
-                f32 height = vecarg.get<1>().height();
+                f32 width = vecarg.get<1>().w();
+                f32 height = vecarg.get<1>().h();
                 f32 physical_width = wfn::physical(width);
                 f32 physical_height = wfn::physical(height);
 
@@ -100,8 +100,8 @@ inline auto ulx::context::update_texture_images(ulx::size& siz, const element& o
             }
 
             ulx::size uvsiz = resuv.get<1>();
-            if (siz.width() == -1) siz = {wfn::logical(uvsiz.width() * 1024), siz.height()};
-            if (siz.height() == -1) siz = {siz.width(), wfn::logical(uvsiz.height() * 1024)};
+            if (siz.w() == -1) siz = {wfn::logical(uvsiz.w() * 1024), siz.h()};
+            if (siz.h() == -1) siz = {siz.w(), wfn::logical(uvsiz.h() * 1024)};
         } else if constexpr (std::same_as<T, element::texture::text>) {
             elemtype = __uii::vsdces::charelem;
             auto it = m_font_cache.find(arg);
@@ -122,8 +122,8 @@ inline auto ulx::context::update_texture_images(ulx::size& siz, const element& o
             }
 
             ulx::size uvsiz = resuv.get<1>();
-            if (siz.width() == -1) siz = {wfn::logical(uvsiz.width() * 1024.0f), siz.height()};
-            if (siz.height() == -1) siz = {siz.width(), wfn::logical(uvsiz.height() * 1024.0f)};
+            if (siz.w() == -1) siz = {wfn::logical(uvsiz.w() * 1024.0f), siz.h()};
+            if (siz.h() == -1) siz = {siz.w(), wfn::logical(uvsiz.h() * 1024.0f)};
         }
     }, texture_variant);
     return resuv;
@@ -141,21 +141,21 @@ inline auto ulx::context::push_element(
     f32 border_width = wfn::physical(elem.get_border_width());
     f32 x = wfn::physical(pos.x());
     f32 y = wfn::physical(pos.y());
-    f32 width = wfn::physical(siz.width());
-    f32 height = wfn::physical(siz.height());
+    f32 width = wfn::physical(siz.w());
+    f32 height = wfn::physical(siz.h());
     glm::vec2 half_size = {width / 2.0f, height / 2.0f};
     glm::vec2 center = {x + half_size.x, m_mainwin_height - (y + half_size.y) + 0.5f};
     glm::vec2 top_left = center - half_size;
     glm::vec2 top_right = {center.x + half_size.x, center.y - half_size.y};
     glm::vec2 bottom_right = center + half_size;
     glm::vec2 bottom_left = {center.x - half_size.x, center.y + half_size.y};
-    glm::vec4 background_color_vec = __uii::vkalg::color_to_vec4(background_color);
-    glm::vec4 border_color_vec = __uii::vkalg::color_to_vec4(border_color);
+    glm::vec4 background_color_vec = background_color.to_vec4();
+    glm::vec4 border_color_vec = border_color.to_vec4();
 
     point& uvpos = uv.get<0>();
     f32 uvx = uvpos.x(), uvy = uvpos.y();
     ulx::size& uvsiz = uv.get<1>();
-    f32 uvw = uvsiz.width(), uvh = uvsiz.height();
+    f32 uvw = uvsiz.w(), uvh = uvsiz.h();
 
     glm::vec4 data = elem.get_data();
     m_vertices.insert(m_vertices.end(), {
@@ -180,26 +180,26 @@ inline auto ulx::context::compute_layout(
     else if (parent_layout == horbox) {
         if (align & alignleft) {
             pos = {x_offset + pos.x(), pos.y()};
-            x_offset += padding + siz.width();
+            x_offset += padding + siz.w();
         } else if (align & alignright) {
-            pos = {parent_size.width() - x_offset - siz.width(), pos.y()};
-            x_offset += padding + siz.width();
+            pos = {parent_size.w() - x_offset - siz.w(), pos.y()};
+            x_offset += padding + siz.w();
         }
 
         if (align & alignbottom) {
-            pos = {pos.x(), parent_size.height() + pos.y() - siz.height()};
+            pos = {pos.x(), parent_size.h() + pos.y() - siz.h()};
         }
     } else if (parent_layout == verbox) {
         if (align & aligntop) {
             pos = {pos.x(), y_offset + pos.y()};
-            y_offset += padding + siz.height();
+            y_offset += padding + siz.h();
         } else if (align & alignbottom) {
-            pos = {pos.x(), parent_size.height() - y_offset - siz.height()};
-            y_offset += padding + siz.height();
+            pos = {pos.x(), parent_size.h() - y_offset - siz.h()};
+            y_offset += padding + siz.h();
         }
 
         if (align & alignright) {
-            pos = {parent_size.width() + pos.x() - siz.width(), pos.y()};
+            pos = {parent_size.w() + pos.x() - siz.w(), pos.y()};
         }
     }
 }
@@ -227,12 +227,12 @@ inline auto ulx::context::push_elements(
         __uii::ats::uv uv = update_texture_images(siz, elem, texture_index, elemtype);
         if (elem.is_shadow()) elemtype = __uii::vsdces::shadelem;
 
-        if (siz.width() == -2) siz = {parent_size.width(), siz.height()};
-        if (siz.height() == -2) siz = {siz.width(), parent_size.height()};
+        if (siz.w() == -2) siz = {parent_size.w(), siz.h()};
+        if (siz.h() == -2) siz = {siz.w(), parent_size.h()};
         pos = {pos.x() + parent_pos.x(), pos.y() + parent_pos.y()};
         compute_layout(siz, pos, parent_size, parent_pos, parent_layout, x_offset, y_offset, parent_padding, align);
 
-        if (siz.width() != 0 && siz.height() != 0) {
+        if (siz.w() != 0 && siz.h() != 0) {
             const element::event::pressed& pressed_event = elem.get_pressed_event();
             const element::event::released& released_event = elem.get_released_event();
             const element::event::hovered& hovered_event = elem.get_hovered_event();
@@ -240,10 +240,10 @@ inline auto ulx::context::push_elements(
             if (pt_hwnd == m_mainwin || pt_hwnd == m_snapwin) {
                 if (event_valid(pressed_event, released_event, hovered_event) &&
                     cursor_pt.x >= wfn::physical(pos.x())                     &&
-                    cursor_pt.x <= wfn::physical(pos.x() + siz.width())       &&
+                    cursor_pt.x <= wfn::physical(pos.x() + siz.w())           &&
 
                     cursor_pt.y >= wfn::physical(pos.y())                     &&
-                    cursor_pt.y <= wfn::physical(pos.y() + siz.height())
+                    cursor_pt.y <= wfn::physical(pos.y() + siz.h())
                 ) {
                     if (left_mouse_state & 0x8000) {
                         if (pressed_event.valid()) pressed_event(*this, elem);
@@ -259,6 +259,17 @@ inline auto ulx::context::push_elements(
             } else {
                 if (released_event.valid()) released_event(*this, elem);
             }
+
+            vec<element> shadows = elem.get_shadows();
+            for (auto& shadow : shadows)
+                shadow.size({siz.w() + shadow.get_border_width()*2, siz.h() + shadow.get_border_width()*2});
+
+            f32 x_offset = 0; f32 y_offset = 0;
+            push_elements(shadows, render_index, siz, pos,
+                elem.get_layout(), elem.get_padding(),
+                x_offset, y_offset, elem.get_alignment(),
+                cursor_pt, pt_hwnd, left_mouse_state
+            );
 
             push_element(elem, siz, pos, render_index, texture_index, uv, elemtype);
         }
@@ -408,10 +419,10 @@ inline auto ulx::context::win32_process(HWND hwnd, UINT message, WPARAM wparam, 
             ulx::size max_size = ctx->m_mainwin_maxsize;
 
             MINMAXINFO* minmax_info = reinterpret_cast<MINMAXINFO*>(lparam);
-            minmax_info->ptMinTrackSize.x = min_size.width();
-            minmax_info->ptMinTrackSize.y = min_size.height();
-            minmax_info->ptMaxTrackSize.x = max_size.width();
-            minmax_info->ptMaxTrackSize.y = max_size.height();
+            minmax_info->ptMinTrackSize.x = min_size.w();
+            minmax_info->ptMinTrackSize.y = min_size.h();
+            minmax_info->ptMaxTrackSize.x = max_size.w();
+            minmax_info->ptMaxTrackSize.y = max_size.h();
 
             return 0;
         } case WM_SIZE: {
@@ -485,16 +496,16 @@ inline auto ulx::context::create_window(const wininfo& window_info, const appinf
 
     m_mainwin_minsize = window_info.get_min_window_size();
     m_mainwin_maxsize = window_info.get_max_window_size();
-    if (window_size.width() < m_mainwin_minsize.width()) window_size = {m_mainwin_minsize.width(), window_size.height()};
-    if (window_size.height() < m_mainwin_minsize.height()) window_size = {window_size.width(), m_mainwin_minsize.height()};
-    if (window_size.width() > m_mainwin_maxsize.width()) window_size = {m_mainwin_maxsize.width(), window_size.height()};
-    if (window_size.height() > m_mainwin_maxsize.height()) window_size = {window_size.width(), m_mainwin_maxsize.height()};
-    m_mainwin_minsize = {wfn::physical(m_mainwin_minsize.width()), wfn::physical(m_mainwin_minsize.height())};
-    m_mainwin_maxsize = {wfn::physical(m_mainwin_maxsize.width()), wfn::physical(m_mainwin_maxsize.height())};
+    if (window_size.w() < m_mainwin_minsize.w()) window_size = {m_mainwin_minsize.w(), window_size.h()};
+    if (window_size.h() < m_mainwin_minsize.h()) window_size = {window_size.w(), m_mainwin_minsize.h()};
+    if (window_size.w() > m_mainwin_maxsize.w()) window_size = {m_mainwin_maxsize.w(), window_size.h()};
+    if (window_size.h() > m_mainwin_maxsize.h()) window_size = {window_size.w(), m_mainwin_maxsize.h()};
+    m_mainwin_minsize = {wfn::physical(m_mainwin_minsize.w()), wfn::physical(m_mainwin_minsize.h())};
+    m_mainwin_maxsize = {wfn::physical(m_mainwin_maxsize.w()), wfn::physical(m_mainwin_maxsize.h())};
 
 
-    u32 physical_window_width = wfn::physical(window_size.width());
-    u32 physical_window_height = wfn::physical(window_size.height());
+    u32 physical_window_width = wfn::physical(window_size.w());
+    u32 physical_window_height = wfn::physical(window_size.h());
     i32 physical_window_x = wfn::physical(window_pos.x());
     i32 physical_window_y = wfn::physical(window_pos.y());
 
@@ -605,8 +616,8 @@ inline auto ulx::context::win_move(const point& pos) -> void {
 }
 
 inline auto ulx::context::win_resize(const ulx::size& size) -> void {
-    u32 physical_width = wfn::physical(size.width());
-    u32 physical_height = wfn::physical(size.height());
+    u32 physical_width = wfn::physical(size.w());
+    u32 physical_height = wfn::physical(size.h());
     MoveWindow(m_mainwin, win_x(), win_y(), physical_width, physical_height, TRUE);
     m_mainwin_width = physical_width;
     m_mainwin_height = physical_height;
@@ -1090,7 +1101,7 @@ inline auto ulx::context::record_command_buffer(VkCommandBuffer command_buffer, 
     log::vk(vkBeginCommandBuffer(command_buffer, &command_buffer_begin_info),
         "context.hpp: ulx::context::record_command_buffer(VkCommandBuffer): vkBeginCommandBuffer() != VK_SUCCESS");
 
-    VkClearValue clear_color = {{{m_background_color.red() / 255.0f, m_background_color.green() / 255.0f, m_background_color.blue() / 255.0f, m_background_color.alpha() / 255.0f}}};
+    VkClearValue clear_color = {{{m_background_color.r1(), m_background_color.g1(), m_background_color.b1(), m_background_color.a1()}}};
     VkRenderPassBeginInfo render_pass_begin_info{};
     render_pass_begin_info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
     render_pass_begin_info.renderPass = m_render_pass;
@@ -1331,7 +1342,7 @@ inline auto ulx::context::map_texture_images() -> void {
         staging_offset += pixmap.pixel_size();
 
         __uii::vkalg::transition_image_layout(m_logical_device, single_time_command_buffer, image, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
-        __uii::vkalg::copy_buffer_to_image(m_logical_device, m_texture_buffer.buf, single_time_command_buffer, image, size.width(), size.height(), offsets[index]);
+        __uii::vkalg::copy_buffer_to_image(m_logical_device, m_texture_buffer.buf, single_time_command_buffer, image, size.w(), size.h(), offsets[index]);
         __uii::vkalg::transition_image_layout(m_logical_device, single_time_command_buffer, image, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
     }
     __uii::vkalg::end_single_time_command_buffer(m_logical_device, m_device_queues.graphics_queue, m_command_pool, single_time_command_buffer);
@@ -1347,8 +1358,8 @@ inline auto ulx::context::create_texture_image(ulx::u64 index) -> VkMemoryRequir
     image_create_info.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
     image_create_info.imageType = VK_IMAGE_TYPE_2D;
     image_create_info.format = VK_FORMAT_R8G8B8A8_UNORM;
-    image_create_info.extent.width = size.width();
-    image_create_info.extent.height = size.height();
+    image_create_info.extent.width = size.w();
+    image_create_info.extent.height = size.h();
     image_create_info.extent.depth = 1;
     image_create_info.mipLevels = 1;
     image_create_info.arrayLayers = 1;
@@ -1468,8 +1479,8 @@ inline auto ulx::context::save_texture_caches() -> void {
                 value.PushBack(pos.x(), alloc);
                 value.PushBack(pos.y(), alloc);
                 size sz = uv.get<1>();
-                value.PushBack(sz.width(), alloc);
-                value.PushBack(sz.height(), alloc);
+                value.PushBack(sz.w(), alloc);
+                value.PushBack(sz.h(), alloc);
 
             Value key(cache.first.str().cstr(), alloc);
             bitmap.AddMember(key, value, alloc);
@@ -1483,8 +1494,8 @@ inline auto ulx::context::save_texture_caches() -> void {
                 size sz2 = cache.first.get<1>();
                 Value vp(ps.str().cstr(), alloc);
                 key.PushBack(vp, alloc);
-                key.PushBack(sz2.width(), alloc);
-                key.PushBack(sz2.height(), alloc);
+                key.PushBack(sz2.w(), alloc);
+                key.PushBack(sz2.h(), alloc);
             vector.PushBack(key, alloc);
 
             u32 idx = cache.second.get<0>();
@@ -1495,8 +1506,8 @@ inline auto ulx::context::save_texture_caches() -> void {
                 value.PushBack(pos.x(), alloc);
                 value.PushBack(pos.y(), alloc);
                 size sz = uv.get<1>();
-                value.PushBack(sz.width(), alloc);
-                value.PushBack(sz.height(), alloc);
+                value.PushBack(sz.w(), alloc);
+                value.PushBack(sz.h(), alloc);
             vector.PushBack(value, alloc);
         }
     doc.AddMember("vector", vector, alloc);
@@ -1518,8 +1529,8 @@ inline auto ulx::context::save_texture_caches() -> void {
             size sz = uv.get<1>();
             entry.PushBack(pos.x(), alloc);
             entry.PushBack(pos.y(), alloc);
-            entry.PushBack(sz.width(), alloc);
-            entry.PushBack(sz.height(), alloc);
+            entry.PushBack(sz.w(), alloc);
+            entry.PushBack(sz.h(), alloc);
 
             font_.PushBack(entry, alloc);
         }

@@ -13,7 +13,6 @@
 #include "align.hpp"
 #include "pack.hpp"
 #include "types.hpp"
-#include "ulix/__inside_impl/vulkan_algorithm.hpp"
 #include "ulix/path.hpp"
 #include <utility>
 #include <variant>
@@ -43,6 +42,7 @@ namespace ulx {
         private:
         strvw        m_id;
         vec<element> m_elements;
+        vec<element> m_shadows;
 
         point m_pos = {0, 0};
         size  m_size = {0, 0};
@@ -78,7 +78,7 @@ namespace ulx {
         }
 
         public: inline constexpr auto border(const color& color) -> element& {
-            m_data = __uii::vkalg::color_to_vec4(color);
+            m_data = color.to_vec4();
             return *this;
         }
 
@@ -200,9 +200,16 @@ namespace ulx {
             return *this;
         }
 
-        public: inline constexpr auto shadow(const point& pos, bool inset = false) -> element& {
-            m_is_shadow = true;
-            m_data = {pos.x(), pos.y(), f32(inset), 0};
+        public: inline constexpr auto shadow(const color& color, f32 radius, f32 width, const point& offset = {0, 0}, f32 exp = 2.0f, bool inset = false) -> element& {
+            auto c = ulx::element("shadow")
+                .pos({-width + offset.x(), -width + offset.y()})
+                .corner(radius)
+                .border(width)
+                .back(color);
+            c.m_is_shadow = true;
+            c.m_data = {f32(inset), exp, 0, 0};
+            m_shadows.push_back(c);
+            
             return *this;
         }
 
@@ -231,6 +238,7 @@ namespace ulx {
         public: inline constexpr auto get_cursor() const -> ulx::cursor { return m_curs; }
         public: inline constexpr auto get_data() const -> const glm::vec4& { return m_data; }
         public: inline constexpr auto is_shadow() const -> bool { return m_is_shadow; }
+        public: inline constexpr auto get_shadows() -> vec<element>& { return m_shadows; }
     };
 }
 

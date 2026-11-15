@@ -1,5 +1,6 @@
 #pragma once
 #include <cstdint>
+#include <optional>
 #include <set>
 #include <string>
 #include <string_view>
@@ -50,6 +51,7 @@ namespace ulx {
     template<typename T, ulx::u64 size> using arr = std::array<T, size>;
     template<typename A, typename B> using pair = std::pair<A, B>;
     using bytes = ulx::vec<u8>;
+    template<typename t_any> using opt = std::optional<t_any>;
 
     /* extension type alias */
     template<typename K, typename V> using hashmap = ska::flat_hash_map<K, V>;

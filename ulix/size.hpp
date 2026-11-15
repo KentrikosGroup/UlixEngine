@@ -9,12 +9,12 @@ namespace ulx {
         public: inline constexpr size() = default;
         public: inline constexpr size(f32 width, f32 height): m_width(width), m_height(height) {}
 
-        public: inline constexpr auto width() const -> f32 { return m_width; }
-        public: inline constexpr auto height() const -> f32 { return m_height; }
+        public: inline constexpr auto w() const -> f32 { return m_width; }
+        public: inline constexpr auto h() const -> f32 { return m_height; }
 
         public: inline constexpr auto operator==(const size&) const -> bool = default;
             
-        public: inline static constexpr auto from_ratio(f32 width, f32 ratio) -> size {
+        public: inline static constexpr auto ratio(f32 width, f32 ratio) -> size {
             return size(width, width * ratio);
         }
 
@@ -31,7 +31,7 @@ namespace std {
     template<>
     struct hash<ulx::size> {
         size_t operator()(const ulx::size& s) const noexcept {
-            return ulx::make_hash(s.width(), s.height());
+            return ulx::make_hash(s.w(), s.h());
         }
     };
 }
