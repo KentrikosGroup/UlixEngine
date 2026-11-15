@@ -6,7 +6,7 @@
 #include <cstring>
 
 namespace ulx {
-    template<u64 size = 256>
+    template<u64 size = 64>
     class stablestr {
         arr<char, size> str_array;
 
@@ -20,20 +20,6 @@ namespace ulx {
             std::memcpy(str_array.data(), sview.data(), len);
             str_array[len] = '\0';
         }
-
-        // public: inline constexpr stablestr(const char* c_str) {
-        //     ulx::log::expect(size > 0, "stablestr.hpp: stablestr(): size: size must be at least 1");
-        //     auto len = std::min(std::strlen(c_str), size - 1);
-        //     std::memcpy(str_array.data(), c_str, len);
-        //     str_array[len] = '\0';
-        // }
-
-        // public: inline constexpr stablestr(char* c_str) {
-        //     ulx::log::expect(size > 0, "stablestr.hpp: stablestr(): size: size must be at least 1");
-        //     auto len = std::min(std::strlen(c_str), size - 1);
-        //     std::memcpy(str_array.data(), c_str, len);
-        //     str_array[len] = '\0';
-        // }
 
         public: inline constexpr stablestr(const stablestr& other) {
             ulx::log::expect(size > 0, "stablestr.hpp: stablestr(): size: size must be at least 1");

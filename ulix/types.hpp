@@ -24,9 +24,10 @@ namespace ulx {
         return chr::duration_cast<chrt::ms>(dur);
     }
 
-    #define ulxdebug_msstart ulx::steady::now();
-    #define ulxdebug_msinfo(last_steady, inf) ulx::info("{}: {}", inf, ulx::ms_cast(ulx::steady::now() - last_steady))
-    
+    template<typename t_int>
+    inline static consteval auto enumn(t_int v) {
+        return t_int(1) << v;
+    }
 
     /* type keyword alias */
     using i8 = std::int8_t;

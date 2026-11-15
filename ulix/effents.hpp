@@ -6,10 +6,9 @@
 #include "types.hpp"
 #include <utility>
 
-#define event_pressed
-#define event_released
-#define event_hovered
-#define event_clicked
+#define ulx_lambda_hovered (ulx::context& ctx, ulx::element& slf)
+#define ulx_lambda_released (ulx::context& ctx, ulx::element& slf)
+#define ulx_lambda_pressed (ulx::context& ctx, ulx::element& slf)
 
 namespace ulx {
     class gradcolor {

@@ -10,43 +10,49 @@
 
 namespace ulx {
     class gradbutton {
-        clicked clicked_state;
-        color empty_color;
-        gradcolor background;
-        element::event::mouse clicked_event;
-        color pressed_color;
-        color hovered_color;
+        strvw                 m_id;
+        clicked               m_clicked;
+        color                 m_empty;
+        gradcolor             m_grad_back;
+        element::event::mouse m_clicked_event;
+        color                 m_pressed_color;
+        color                 m_hovered_color;
 
-        public: template<typename _color>
-            requires expect<_color, color>
-        inline constexpr gradbutton(_color&& start): background(std::forward<_color>(start)), empty_color(std::forward<_color>(start)) {}
-            
-        public: template<typename _clicked, typename _pressed_color, typename _hovered_color>
-            requires expect<_clicked, element::event::mouse> &&
+        public: template<typename t_start_color>
+            requires expect<t_start_color, color>
+        inline constexpr gradbutton(strvw id, t_start_color&& start): 
+            m_id(id),
+            m_grad_back(std::forward<t_start_color>(start)), 
+            m_empty(std::forward<t_start_color>(start)) {}
+
+        public: template<typename t_clicked_event, typename _pressed_color, typename _hovered_color>
+            requires expect<t_clicked_event, element::event::mouse> &&
                      expect<_pressed_color, color> &&
                      expect<_hovered_color, color>
-        inline constexpr auto element(ulx::strvw id, _clicked&& clicked_event, _pressed_color&& pressed_color, _hovered_color&& hovered_color) -> ulx::element {
-            this->clicked_event = std::forward<_clicked>(clicked_event);
-            this->pressed_color = std::forward<_pressed_color>(pressed_color);
-            this->hovered_color = std::forward<_hovered_color>(hovered_color);
+        inline constexpr auto create(t_clicked_event&& clicked_event, _pressed_color&& pressed_color, _hovered_color&& hovered_color) -> ulx::element {
+            this->m_clicked_event = std::forward<t_clicked_event>(clicked_event);
+            this->m_pressed_color = std::forward<_pressed_color>(pressed_color);
+            this->m_hovered_color = std::forward<_hovered_color>(hovered_color);
 
-            auto obj = ulx::element::unbordered(id)
+            auto obj = ulx::element(m_id)
                 .call([this](ulx::element& slf) {
-                    clicked_state.usefor(slf, this->clicked_event, 
-                        event_pressed [this](ulx::context& ctx, ulx::element& slf) {
-                            background.pressed(slf, ulx::color{22, 22, 22, 255});
-                            slf.back(background.to(
-                                this->pressed_color, 0));
+                    m_clicked.usefor(slf, this->m_clicked_event,
+                        [this] ulx_lambda_pressed {
+                            m_grad_back.pressed(slf, ulx::color{22, 22, 22, 255});
+                            slf.back(m_grad_back.to(
+                                this->m_pressed_color, 0));
                             slf.cur(ulx::handcur);
-                        }, event_released [this](ulx::context& ctx, ulx::element& slf) {
-                            slf.back(background.to(
-                                empty_color, 150));
+                        },
+                        [this] ulx_lambda_released {
+                            slf.back(m_grad_back.to(
+                                m_empty, 150));
                             slf.cur(ulx::resetcur);
-                            background.released(slf, {22, 22, 22, 255});
-                        }, event_hovered [this](ulx::context& ctx, ulx::element& slf) {
-                            background.hovered(slf, ulx::color{22, 22, 22, 255});
-                            slf.back(background.to(
-                                this->hovered_color, 150));
+                            m_grad_back.released(slf, {22, 22, 22, 255});
+                        },
+                        [this] ulx_lambda_hovered {
+                            m_grad_back.hovered(slf, ulx::color{22, 22, 22, 255});
+                            slf.back(m_grad_back.to(
+                                this->m_hovered_color, 150));
                             slf.cur(ulx::handcur);
                         }
                     );

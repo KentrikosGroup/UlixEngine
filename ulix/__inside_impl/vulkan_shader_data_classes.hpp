@@ -7,7 +7,6 @@
 
 namespace __uii::vsdces {
     enum elemtype {
-        normalelem,
         charelem,
         svgelem,
         pixmelem

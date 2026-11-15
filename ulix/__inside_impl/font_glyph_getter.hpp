@@ -3,8 +3,6 @@
 #include "../types.hpp"
 #include "../font.hpp"
 #include "../__required_libraries/freetype/freetype.hpp"
-#include "ulix/__required_libraries/freetype/freetype/freetype.h"
-#include "ulix/__required_libraries/freetype/freetype/ftlcdfil.h"
 #include "ulix/pack.hpp"
 #include "ulix/path.hpp"
 #include "ulix/stablestr.hpp"
@@ -13,7 +11,7 @@
 namespace __uii::fgg {
     constexpr ulx::strvw reps = "(https://github.com/freetype/freetype, https://github.com/KentrikosGroup/UlixEngine)";
 
-    inline static UINT window_dpi;
+    // inline static UINT window_dpi;
     inline static auto is_fullwidth_punct(ulx::u32 cp) -> bool {
         return (cp >= 0x3001 && cp <= 0x3002) ||                                                  // 、。
                (cp >= 0x3008 && cp <= 0x3011 && cp % 2) ||                                        // 》」』】
@@ -49,7 +47,7 @@ namespace __uii::fgg {
     } inline static exec_init;
 
     inline static auto get_path(const ulx::font& font) -> ulx::pathstr {
-        ulx::pathstr font_path = font.get_name();
+        ulx::pathstr font_path = font.get_path();
         if (!ulx::path(font_path).exists())
             font_path = "C:\\Windows\\Fonts\\" + font_path;
 
@@ -60,7 +58,7 @@ namespace __uii::fgg {
     }
 
     inline static auto load(const ulx::font& font) -> FT_Face {
-        ulx::pathstr name = font.get_name();
+        ulx::pathstr name = font.get_path();
         auto it = font_cache.find(name);
         if (it != font_cache.end())
             return it->second.face;
@@ -90,7 +88,7 @@ namespace __uii::fgg {
             "create new memory face failed, the data of file {} may have been corrupted, error code: {}. {}",
             font_file.str().cstr(), error_code, reps);
 
-        error_code = FT_Set_Char_Size(face, 0, font.get_size() * 64.0f, 0, 0);
+        error_code = FT_Set_Char_Size(face, 0, font.get_size() * 128.0f, 0, 0);
         ulx::log::expect(error_code == 0,
             "set font char size failed, the font size {} may be incorrect, error code: {}. {}",
             font.get_size(), error_code, reps);
@@ -133,17 +131,16 @@ namespace __uii::fgg {
 
         ulx::f32 box_width = advance;
         ulx::bytes rgba(box_width * box_height * 4, 0);
-        for (int y = 0; y < bitmap.rows; ++y) {
+        for (int y = 0; y < bitmap.rows; y++) {
             ulx::f32 box_y = glyph_y_in_box + y;
             if (box_y < 0 || box_y >= box_height) continue;
-    
-            for (int x = 0; x < bitmap.width; ++x) {
+            
+            for (int x = 0; x < bitmap.width; x++) {
                 ulx::f32 box_x = bitmap_left + x;
                 if (box_x < 0 || box_x >= box_width) continue;
     
                 ulx::u8 coverage = bitmap.buffer[y * bitmap.pitch + x];
-                ulx::u64 idx = (static_cast<ulx::u64>(box_y) * static_cast<ulx::u64>(box_width) +
-                                static_cast<ulx::u64>(box_x)) * 4;
+                ulx::u64 idx = (static_cast<ulx::u64>(box_y) * static_cast<ulx::u64>(box_width) + static_cast<ulx::u64>(box_x)) * 4;
     
                 rgba[idx + 0] = coverage;
                 rgba[idx + 1] = coverage;
@@ -160,7 +157,6 @@ namespace __uii::fgg {
         glyph.advance = advance;
         glyph.baseline = ascender_px;
         glyph.bitmap = std::move(rgba);
-
         return glyph;
     }
 
@@ -220,9 +216,9 @@ namespace __uii::fgg {
     }
 
     inline static auto line_metrics(const ulx::font& font) -> ulx::pack<ulx::f32, ulx::f32, ulx::f32> {
-        FT_Face face = load(font.make(ulx::wfn::physical(font.get_size(), window_dpi)));
-        ulx::f32 ascent  = (face->size->metrics.ascender  + 63.0f) / 64.0f;
-        ulx::f32 descent = (-face->size->metrics.descender + 63.0f) / 64.0f;
+        FT_Face face = load(font.make(ulx::wfn::physical(font.get_size())));
+        ulx::f32 ascent  = (face->size->metrics.ascender) / 128.0f;
+        ulx::f32 descent = (-face->size->metrics.descender) / 128.0f;
         ulx::f32 line_h  = ascent + descent;
         return {ascent, descent, line_h};
     }

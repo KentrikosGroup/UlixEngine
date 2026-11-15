@@ -2,7 +2,7 @@
 
 namespace ulx {
     enum box {
-        nonebox,
+        nonbox,
         verbox,
         horbox,
     };

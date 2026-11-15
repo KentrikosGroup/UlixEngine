@@ -3,12 +3,10 @@
 
 namespace ulx {
     enum align: ulx::u8 {
-        vcenter = 1 << 0,
-        hcenter = 1 << 1,
-        aligntop = 1 << 2,
-        alignbottom = 1 << 3,
-        alignleft = 1 << 4,
-        alignright = 1 << 5,
-        center = vcenter | hcenter
+        aligntop    = enumn(0),
+        alignbottom = enumn(1),
+        alignleft   = enumn(2),
+        alignright  = enumn(3),
+        aligndef = aligntop | alignleft
     };
 }

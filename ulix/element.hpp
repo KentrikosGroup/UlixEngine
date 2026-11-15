@@ -20,25 +20,10 @@
 #include <utility>
 #include <variant>
 
-#define event_when
-#define event_else
+#define ulx_lambda_when (ulx::element& slf)
+#define ulx_lambda_else (ulx::element& slf)
 
 namespace ulx {
-    inline static UINT window_dpi = 0;
-
-    struct style {
-        ulx::color background = ulx::color(255, 255, 255, 255);
-        ulx::color border = ulx::color(255, 255, 255, 255);
-        ulx::f32 corner = 16.0f;
-        ulx::f32 borderw = 16.0f;
-    };
-
-    struct layoutbox {
-        ulx::box box = ulx::box::nonebox;
-        ulx::u8 align = ulx::align::alignleft | ulx::align::aligntop;
-        ulx::f32 padding = 0.0f;
-    };
-
     struct geom {
         ulx::size size = ulx::size(0, 0);
         ulx::point pos = ulx::point(0, 0);
@@ -63,99 +48,59 @@ namespace ulx {
         };
 
         private:
-        ulx::color m_back_color = ulx::color::empty();
-        ulx::color m_border_color = ulx::color::empty();
-        ulx::f32 m_corner_radius = 0;
-        ulx::f32 m_border_width = 0;
-        ulx::point m_pos = ulx::point(0, 0);
-        ulx::size m_size = ulx::size(0, 0);
-        ulx::vec<ulx::element> m_elements;
-        ulx::u8 m_align = ulx::align::center;
-        ulx::f32 m_padding = 5;
-        ulx::box m_box = ulx::box::nonebox;
+        color m_back_color = color::empty();
+        color m_border_color = color::empty();
+        f32 m_corner_radius = 0;
+        f32 m_border_width = 0;
+        point m_pos = {0, 0};
+        size m_size = {0, 0};
+        vec<element> m_elements;
+        u8 m_align = aligndef;
+        f32 m_padding = 0;
+        box m_box = nonbox;
         texture::variant m_texture;
-        ulx::strvw m_id;
+        strvw m_id;
         event::released m_released;
         event::pressed m_pressed;
         event::hovered m_hovered;
-        ulx::cursor m_curs = ulx::cursor::resetcur;
-        glm::vec4 m_data = {0, 0, 0, 0};
+        cursor m_curs = resetcur;
+        glm::vec4 m_data = {1.0f, 0, 1, 0};
 
         public: inline constexpr element() = default;
         public: inline constexpr element(strvw id): m_id(id) {}
-        public: inline constexpr element(strvw id, const str& txt, const font& font = ulx::font(), const color& color = ulx::color(255, 255, 255, 255)): m_id(id) {
-            auto metrics = __uii::fgg::line_metrics(font);
-            f32 height = static_cast<f32>(ulx::wfn::logical(metrics.template get<2>(), window_dpi));
-
-            size({0, height});
-            align(ulx::alignleft | ulx::aligntop);
-            box(ulx::horbox).pad(0);
-
-            for (ulx::u64 i = 0; i < txt.size(); ) {
-                ulx::u32 cp = __uii::fgg::decode_utf8(txt, i);
-                ulx::u8char glyph_str;
-
-                if (cp < 0x80) {
-                    glyph_str += static_cast<char>(cp);
-                } else if (cp < 0x800) {
-                    glyph_str += static_cast<char>(0xC0 | (cp >> 6));
-                    glyph_str += static_cast<char>(0x80 | (cp & 0x3F));
-                } else {
-                    glyph_str += static_cast<char>(0xE0 | (cp >> 12));
-                    glyph_str += static_cast<char>(0x80 | ((cp >> 6) & 0x3F));
-                    glyph_str += static_cast<char>(0x80 | (cp & 0x3F));
-                }
-
-                auto c = element(glyph_str.cstr())
-                    .texture(glyph_str, font)
-                    .size(ulx::size::autos())
-                    .border(0).corner(0).back(ulx::color::empty());
-                c.m_data = {color.red01(), color.green01(), color.blue01(), color.alpha01()};
-
-                child(c);
-            }
-        }
 
         public: inline constexpr auto id(strvw id) -> element& {
             this->m_id = id;
             return *this;
         }
 
-        public: inline constexpr auto style(const ulx::style& style) -> element& {
-            m_back_color = style.background;
-            m_data = __uii::vkalg::color_to_vec4(style.border);
-            m_corner_radius = style.corner;
-            m_border_width = style.borderw;
-            return *this;
-        }
-
-        public: inline constexpr auto back(const ulx::color& color) -> element& {
+        public: inline constexpr auto back(const color& color) -> element& {
             m_back_color = color;
             return *this;
         }
 
-        public: inline constexpr auto border(const ulx::color& color) -> element& {
+        public: inline constexpr auto border(const color& color) -> element& {
             m_data = __uii::vkalg::color_to_vec4(color);
             return *this;
         }
 
-        public: inline constexpr auto corner(ulx::f32 radius) -> element& {
+        public: inline constexpr auto corner(f32 radius) -> element& {
             m_corner_radius = radius;
             return *this;
         }
 
-        public: inline constexpr auto border(ulx::f32 width) -> element& {
+        public: inline constexpr auto border(f32 width) -> element& {
             m_border_width = width;
             return *this;
         }
 
-        public: inline constexpr auto size(const ulx::size& siz) -> element& {
+        public: inline constexpr auto size(const size& siz) -> element& {
             this->m_size = siz;
             return *this;
         }
 
-        public: inline constexpr auto pos(const ulx::point& p) -> element& {
-            this->m_pos = ulx::point(p.x(), p.y());
+        public: inline constexpr auto pos(const point& p) -> element& {
+            this->m_pos = point(p.x(), p.y());
             return *this;
         }
 
@@ -165,7 +110,7 @@ namespace ulx {
         }
 
         public: template<typename _path>
-            requires ulx::expect<_path, path>
+            requires expect<_path, path>
         inline constexpr auto texture(_path&& bitmap, f32 sigma = 1.0f, u32 radius = 0, u32 taps = 1) -> element& {
             log::expect(bitmap.exists(), "element.hpp: namespace ulx: class element: texture(_path&&): bitmap.exists() == false");
             m_texture.emplace<texture::bitmap>(std::forward<_path>(bitmap));
@@ -175,7 +120,7 @@ namespace ulx {
         }
 
         public: template<typename _path, typename _size>
-            requires ulx::expect<_path, path> && ulx::expect<_size, ulx::size>
+            requires expect<_path, path> && expect<_size, ulx::size>
         inline constexpr auto texture(_path&& svg, _size&& size) -> element& {
             log::expect(svg.exists(), "element.hpp: namespace ulx: class element: texture(_path&&, _size&&): svg.exists() == false");
             m_texture.emplace<texture::vector>(std::forward<_path>(svg), std::forward<_size>(size));
@@ -183,62 +128,55 @@ namespace ulx {
         }
 
         public: template<typename _path>
-            requires ulx::expect<_path, path>
+            requires expect<_path, path>
         inline constexpr auto icon(strvw id, _path&& svg, const ulx::size& s) -> element& {
-            child(element().style({
-                .background = ulx::color::empty(),
-                .corner = 0, .borderw = 0
-            }).size(s).pos(ulx::point::center_to(s, m_size)).texture(std::forward<_path>(svg), s));
-            return *this;
+            return child(element()
+                    .back(color::empty())
+                    .size(s)
+                    .pos(point::center_to(s, m_size))
+                    .texture(std::forward<_path>(svg), s));
         }
 
         public: template<typename _font>
-            requires ulx::expect<_font, font>
-        inline constexpr auto texture(u8char chr, _font&& font = ulx::font()) -> element& {
+            requires expect<_font, font>
+        inline constexpr auto texture(u8char chr, _font&& font = {}) -> element& {
             m_texture.emplace<texture::text>(chr, std::forward<_font>(font));
             return *this;
         }
 
-        public: inline constexpr auto align(ulx::u8 alignment) -> element& {
+        public: inline constexpr auto align(u8 alignment) -> element& {
             this->m_align = alignment;
             return *this;
         }
 
-        public: inline constexpr auto pad(ulx::f32 padding) -> element& {
+        public: inline constexpr auto pad(f32 padding) -> element& {
             m_padding = padding;
             return *this;
         }
 
-        public: inline constexpr auto box(ulx::box bx) -> element& {
+        public: inline constexpr auto box(box bx) -> element& {
             this->m_box = bx;
             return *this;
         }
 
         template<typename _released>
-            requires ulx::expect<_released, event::released>
+            requires expect<_released, event::released>
         inline constexpr auto released(_released&& event) -> element& {
             m_released = std::forward<_released>(event);
             return *this;
         }
 
         template<typename _pressed>
-            requires ulx::expect<_pressed, event::pressed>
+            requires expect<_pressed, event::pressed>
         inline constexpr auto pressed(_pressed&& event) -> element& {
             m_pressed = std::forward<_pressed>(event);
             return *this;
         }
 
         template<typename _hovered>
-            requires ulx::expect<_hovered, event::hovered>
+            requires expect<_hovered, event::hovered>
         inline constexpr auto hovered(_hovered&& event) -> element& {
             m_hovered = std::forward<_hovered>(event);
-            return *this;
-        }
-
-        inline constexpr auto layout(const layoutbox& layout) -> element& {
-            m_box = layout.box;
-            m_padding = layout.padding;
-            m_align = layout.align;
             return *this;
         }
 
@@ -259,7 +197,7 @@ namespace ulx {
             return *this;
         }
 
-        inline constexpr auto cur(ulx::cursor cursor) -> element& {
+        inline constexpr auto cur(cursor cursor) -> element& {
             m_curs = cursor;
             return *this;
         }
@@ -267,6 +205,12 @@ namespace ulx {
         inline constexpr auto geom(const geom& geom) -> element& {
             m_pos = ulx::point(geom.pos.x(), geom.pos.y() + 0.5);
             m_size = geom.size;
+            return *this;
+        }
+
+        template<typename t_vec4>
+        inline constexpr auto data(t_vec4&& data) -> element& {
+            m_data = std::forward<t_vec4>(data);
             return *this;
         }
 
@@ -292,20 +236,6 @@ namespace ulx {
     public:
         inline static constexpr auto box() -> element {
             return element().size(ulx::size(0, 0));
-        }
-
-        template<typename _geom>
-            requires ulx::expect<_geom, ulx::geom>
-        inline static constexpr auto unvisible(ulx::strvw id, _geom&& g) -> element {
-            return element(id)
-                .style({
-                    .background = ulx::color::empty(),
-                    .corner = 0, .borderw = 0
-                }).geom(std::forward<_geom>(g));
-        }
-
-        inline static constexpr auto unbordered(ulx::strvw id) -> element {
-            return element(id).corner(0).border(0);
         }
     };
 }

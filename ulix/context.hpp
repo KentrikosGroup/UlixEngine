@@ -6,6 +6,7 @@
 #include "stablestr.hpp"
 #include "ulix/__required_libraries/rapidjson/rapidjson.h"
 #include "ulix/font.hpp"
+#include "ulix/winattr.hpp"
 #include "vulkan/vulkan_core.h"
 #include <d3d11.h>
 #include <future>
@@ -51,74 +52,77 @@ inline auto ulx::context::update_push_constant() -> void {
 inline auto ulx::context::update_texture_images(ulx::size& siz, const element& object, u32& texture_index, u8& elemtype) -> __uii::ats::uv {
     const element::texture::variant& texture_variant = object.get_texture();
     __uii::ats::uv resuv = {{0, 0}, {1, 1}};
-    elemtype = __uii::vsdces::normalelem;
-
     std::visit([&](auto&& arg) {
         using T = std::decay_t<decltype(arg)>;
-
         if constexpr (std::same_as<T, element::texture::none>) {
             texture_index = 0;
+            elemtype = __uii::vsdces::pixmelem;
         } else if constexpr (std::same_as<T, element::texture::bitmap>) {
             elemtype = __uii::vsdces::pixmelem;
             auto it = m_bitmap_cache.find(arg);
             if (it != m_bitmap_cache.end()) {
-                texture_index = it->second.template get<0>();
-                resuv = it->second.template get<1>();
+                __uii::ats::idx idx = it->second;
+                texture_index = idx.get<0>();
+                resuv = idx.get<1>();
             } else {
                 pixmap pm = pixmap::from_bitmap(arg);
                 __uii::ats::idx idx = __uii::ats::push_pixmap(m_texture_image_pixmaps, m_atlas_index, m_atlas_x, m_atlas_y, m_atlas_height, pm);
-                texture_index = idx.template get<0>();
-                resuv = idx.template get<1>();
+                texture_index = idx.get<0>();
+                resuv = idx.get<1>();
                 m_bitmap_cache[arg] = idx;
                 m_texture_pushtag = true;
             }
 
-            ulx::size uvsiz = resuv.template get<1>();
-            if (siz.width() == -1) siz = {wfn::logical(uvsiz.width() * 2048, m_mainwin_dpi), siz.height()};
-            if (siz.height() == -1) siz = {siz.width(), wfn::logical(uvsiz.height() * 2048, m_mainwin_dpi)};
+            ulx::size uvsiz = resuv.get<1>();
+            if (siz.width() == -1) siz = {wfn::logical(uvsiz.width() * 2048), siz.height()};
+            if (siz.height() == -1) siz = {siz.width(), wfn::logical(uvsiz.height() * 2048)};
         } else if constexpr (std::same_as<T, element::texture::vector>) {
             elemtype = __uii::vsdces::svgelem;
             auto it = m_vector_cache.find(arg);
             if (it != m_vector_cache.end()) {
-                texture_index = it->second.template get<0>();
-                resuv = it->second.template get<1>();
+                __uii::ats::idx idx = it->second;
+                texture_index = idx.get<0>();
+                resuv = idx.get<1>();
             } else {
-                f32 width = arg.template get<1>().width();
-                f32 height = arg.template get<1>().height();
-                f32 physical_width = wfn::physical(width, m_mainwin_dpi);
-                f32 physical_height = wfn::physical(height, m_mainwin_dpi);
+                element::texture::vector vecarg = arg;
+                f32 width = vecarg.get<1>().width();
+                f32 height = vecarg.get<1>().height();
+                f32 physical_width = wfn::physical(width);
+                f32 physical_height = wfn::physical(height);
 
-                pixmap pm = pixmap::from_vector(arg.template get<0>(), physical_width, physical_height);
+                pixmap pm = pixmap::from_vector(vecarg.get<0>(), physical_width, physical_height);
                 __uii::ats::idx idx = __uii::ats::push_pixmap(m_texture_image_pixmaps, m_atlas_index, m_atlas_x, m_atlas_y, m_atlas_height, pm);
-                texture_index = idx.template get<0>();
-                resuv = idx.template get<1>();
+                texture_index = idx.get<0>();
+                resuv = idx.get<1>();
                 m_vector_cache[arg] = idx;
                 m_texture_pushtag = true;
             }
 
-            ulx::size uvsiz = resuv.template get<1>();
-            if (siz.width() == -1) siz = {wfn::logical(uvsiz.width() * 1024, m_mainwin_dpi), siz.height()};
-            if (siz.height() == -1) siz = {siz.width(), wfn::logical(uvsiz.height() * 1024, m_mainwin_dpi)};
+            ulx::size uvsiz = resuv.get<1>();
+            if (siz.width() == -1) siz = {wfn::logical(uvsiz.width() * 1024), siz.height()};
+            if (siz.height() == -1) siz = {siz.width(), wfn::logical(uvsiz.height() * 1024)};
         } else if constexpr (std::same_as<T, element::texture::text>) {
             elemtype = __uii::vsdces::charelem;
             auto it = m_font_cache.find(arg);
             if (it != m_font_cache.end()) {
-                texture_index = it->second.template get<0>();
-                resuv = it->second.template get<1>();
+                __uii::ats::idx idx = it->second;
+                texture_index = idx.get<0>();
+                resuv = idx.get<1>();
             } else {
-                font font = arg.template get<1>();
-                font.size(wfn::physical(font.get_size(), m_mainwin_dpi));
-                pixmap pm = pixmap::from_char(arg.template get<0>(), font);
+                element::texture::text vecarg = arg;
+                font font = vecarg.get<1>();
+                font.size(wfn::physical(font.get_size()));
+                pixmap pm = pixmap::from_char(vecarg.get<0>(), font);
                 __uii::ats::idx idx = __uii::ats::push_pixmap(m_texture_image_pixmaps, m_atlas_index, m_atlas_x, m_atlas_y, m_atlas_height, pm);
-                texture_index = idx.template get<0>();
-                resuv = idx.template get<1>();
+                texture_index = idx.get<0>();
+                resuv = idx.get<1>();
                 m_font_cache[arg] = idx;
                 m_texture_pushtag = true;
             }
 
-            ulx::size uvsiz = resuv.template get<1>();
-            if (siz.width() == -1) siz = {wfn::logical(uvsiz.width() * 2048, m_mainwin_dpi), siz.height()};
-            if (siz.height() == -1) siz = {siz.width(), wfn::logical(uvsiz.height() * 2048, m_mainwin_dpi)};
+            ulx::size uvsiz = resuv.get<1>();
+            if (siz.width() == -1) siz = {wfn::logical(uvsiz.width() * 1024.0f), siz.height()};
+            if (siz.height() == -1) siz = {siz.width(), wfn::logical(uvsiz.height() * 1024.0f)};
         }
     }, texture_variant);
     return resuv;
@@ -132,12 +136,12 @@ inline auto ulx::context::push_element(
 ) -> void {
     const color& background_color = elem.get_background_color();
     const color& border_color = elem.get_border_color();
-    f32 corner_radius = wfn::physical(elem.get_corner_radius(), m_mainwin_dpi);
-    f32 border_width = wfn::physical(elem.get_border_width(), m_mainwin_dpi);
-    f32 x = wfn::physical(pos.x(), m_mainwin_dpi);
-    f32 y = wfn::physical(pos.y(), m_mainwin_dpi);
-    f32 width = wfn::physical(siz.width(), m_mainwin_dpi);
-    f32 height = wfn::physical(siz.height(), m_mainwin_dpi);
+    f32 corner_radius = wfn::physical(elem.get_corner_radius());
+    f32 border_width = wfn::physical(elem.get_border_width());
+    f32 x = wfn::physical(pos.x());
+    f32 y = wfn::physical(pos.y());
+    f32 width = wfn::physical(siz.width());
+    f32 height = wfn::physical(siz.height());
     glm::vec2 half_size = {width / 2.0f, height / 2.0f};
     glm::vec2 center = {x + half_size.x, m_mainwin_height - (y + half_size.y) + 0.5f};
     glm::vec2 top_left = center - half_size;
@@ -171,7 +175,7 @@ inline auto ulx::context::compute_layout(
     f32& x_offset, f32& y_offset,
     f32 padding, u8 align
 ) -> void {
-    if (parent_layout == nonebox) return;
+    if (parent_layout == nonbox) return;
     else if (parent_layout == horbox) {
         if (align & alignleft) {
             pos = {x_offset + pos.x(), pos.y()};
@@ -233,11 +237,11 @@ inline auto ulx::context::push_elements(
 
             if (pt_hwnd == m_mainwin || pt_hwnd == m_snapwin) {
                 if (event_valid(pressed_event, released_event, hovered_event) &&
-                    cursor_pt.x >= wfn::physical(pos.x(), m_mainwin_dpi) &&
-                    cursor_pt.x <= wfn::physical(pos.x() + siz.width(), m_mainwin_dpi) &&
+                    cursor_pt.x >= wfn::physical(pos.x())                     &&
+                    cursor_pt.x <= wfn::physical(pos.x() + siz.width())       &&
 
-                    cursor_pt.y >= wfn::physical(pos.y(), m_mainwin_dpi) &&
-                    cursor_pt.y <= wfn::physical(pos.y() + siz.height(), m_mainwin_dpi)
+                    cursor_pt.y >= wfn::physical(pos.y())                     &&
+                    cursor_pt.y <= wfn::physical(pos.y() + siz.height())
                 ) {
                     if (left_mouse_state & 0x8000) {
                         if (pressed_event.valid()) pressed_event(*this, elem);
@@ -281,8 +285,7 @@ inline auto ulx::context::update_scene_objects() -> void {
 
     m_cursor = resetcur;
     f32 x_offset = 0, y_offset = 0;
-    push_elements(objects, render_index,
-        {wfn::logical(m_mainwin_width, m_mainwin_dpi), wfn::logical(m_mainwin_height, m_mainwin_dpi)},
+    push_elements(objects, render_index, {wfn::logical(m_mainwin_width), wfn::logical(m_mainwin_height)},
         {0, 0}, m_scene.get_layout(), m_scene.get_padding(), x_offset, y_offset, m_scene.get_alignment(),
         cursor_pt, pt_hwnd, left_mouse_state
     );
@@ -294,7 +297,6 @@ inline auto ulx::context::set_tick(const tickcallback& callback, u64 delay) -> v
     m_tickcallback = callback;
     m_delay = delay;
 }
-inline auto ulx::context::win_dpi() const -> UINT { return m_mainwin_dpi; }
 inline auto ulx::context::win_cursor() const -> point {
     POINT pt; GetCursorPos(&pt);
     ScreenToClient(m_mainwin, &pt);
@@ -350,7 +352,7 @@ inline auto ulx::context::win32_process(HWND hwnd, UINT message, WPARAM wparam, 
 
             POINT cursor_position; GetCursorPos(&cursor_position);
             RECT window_rect; GetWindowRect(hwnd, &window_rect);
-            int frame = GetSystemMetricsForDpi(SM_CYFRAME, ctx->win_dpi());
+            int frame = GetSystemMetrics(SM_CYFRAME);
             POINT cursor_position_global = cursor_position;
             ScreenToClient(hwnd, &cursor_position_global);
 
@@ -464,8 +466,8 @@ inline auto ulx::context::debug_callback(VkDebugUtilsMessageSeverityFlagBitsEXT 
 }
 
 inline auto ulx::context::create_window(const wininfo& window_info, const appinfo& app_info) -> void {
-    str window_class_name = window_info.get_window_class_name();
-    str window_title = window_info.get_window_title();
+    stablestr<> window_title = window_info.get_window_title();
+    stablestr<> window_class_name = window_title.copy() + "_WindowClass";
     wstr window_wide_class_name = wstr(window_class_name.begin(), window_class_name.end());
     wstr window_wide_title = wstr(window_title.begin(), window_title.end());
     path icon_file_path = app_info.get_icon_file_path();
@@ -491,6 +493,7 @@ inline auto ulx::context::create_window(const wininfo& window_info, const appinf
     i32 physical_window_y = wfn::physical(window_pos.y());
 
     DWORD window_style = WS_OVERLAPPED | WS_CAPTION | WS_THICKFRAME | WS_MINIMIZEBOX | WS_MAXIMIZEBOX;
+
     if (window_info.get_window_attrs() & titledattr) {
         m_mainwin_titled = true;
     } else if (!(window_info.get_window_attrs() & borderedattr)) {
@@ -530,25 +533,22 @@ inline auto ulx::context::create_window(const wininfo& window_info, const appinf
         NULL, NULL, wfn::hinstance, this);
     log::expect(m_mainwin, "context.hpp: ulx::context::create_window(): CreateWindowExW() == NULL, error code: {}", GetLastError());
 
-    m_mainwin_dpi = GetDpiForWindow(m_mainwin);
-    ulx::window_dpi = m_mainwin_dpi;
-    __uii::fgg::window_dpi = m_mainwin_dpi;
     SetWindowLongPtrW(m_mainwin, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(this));
 
     // update window
-    int caption_height = GetSystemMetricsForDpi(SM_CYCAPTION, m_mainwin_dpi);
-    int border_padding = GetSystemMetricsForDpi(SM_CXPADDEDBORDER, m_mainwin_dpi);
-    int border_size = GetSystemMetricsForDpi(SM_CXBORDER, m_mainwin_dpi);
+    int caption_height = GetSystemMetrics(SM_CYCAPTION);
+    int border_padding = GetSystemMetrics(SM_CXPADDEDBORDER);
+    int border_size = GetSystemMetrics(SM_CXBORDER);
     m_native_titleh = caption_height + border_padding + border_size*2 + 1;
     SetWindowPos(m_mainwin, nullptr, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_FRAMECHANGED);
 
     RECT rect; GetClientRect(m_mainwin, &rect);
     m_mainwin_width = rect.right - rect.left;
     m_mainwin_height = rect.bottom - rect.top;
-    m_vtitlebar_height = wfn::physical(window_info.get_titlebar_height(), m_mainwin_dpi);
-    m_vclosebtn_width = wfn::physical(window_info.get_close_button_width(), m_mainwin_dpi);
-    m_vminbtn_width = wfn::physical(window_info.get_min_button_width(), m_mainwin_dpi);
-    m_vmaxbtn_width = wfn::physical(window_info.get_max_button_width(), m_mainwin_dpi);
+    m_vtitlebar_height = wfn::physical(window_info.get_titlebar_height());
+    m_vclosebtn_width = wfn::physical(window_info.get_close_button_width());
+    m_vminbtn_width = wfn::physical(window_info.get_min_button_width());
+    m_vmaxbtn_width = wfn::physical(window_info.get_max_button_width());
 }
 
 inline constexpr ulx::context::context(const appinfo& application_info, const wininfo& window_info, const renderinfo& render_info) {
@@ -609,7 +609,7 @@ inline auto ulx::context::create_vulkan_instance() -> void {
     VkApplicationInfo vulkan_application_info{};
     vulkan_application_info.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
     vulkan_application_info.pApplicationName = m_appid.cstr();
-    vulkan_application_info.applicationVersion = m_appversion;
+    vulkan_application_info.applicationVersion = VK_MAKE_VERSION(1, 0, 0);
     vulkan_application_info.pEngineName = "No Engine";
     vulkan_application_info.engineVersion = VK_MAKE_VERSION(1, 0, 0);
     vulkan_application_info.apiVersion = VK_API_VERSION_1_2;
@@ -1438,7 +1438,7 @@ inline auto ulx::context::save_texture_caches() -> void {
     u32 i = 0;
     for (auto& pixmap : m_texture_image_pixmaps) {
         pending_save_tasks.push_back(std::async(std::launch::async, [&pixmap, i, this]() {
-            pixmap.save(m_cache_path.with("texture_cache_" + pathstr::from(i) + ".png"));
+            pixmap.savepng(m_cache_path.with("texture_cache_" + pathstr::from(i) + ".png"));
         }));
         i++;
     }
@@ -1501,7 +1501,7 @@ inline auto ulx::context::save_texture_caches() -> void {
             entry.PushBack(char_val, alloc);
 
             font f = cache.first.get<1>();
-            Value font_name(f.get_name().cstr(), alloc);
+            Value font_name(f.get_path().cstr(), alloc);
             entry.PushBack(font_name, alloc);
             entry.PushBack(f.get_size(), alloc);
             entry.PushBack(cache.second.get<0>(), alloc);
@@ -1526,7 +1526,7 @@ inline auto ulx::context::save_texture_caches() -> void {
         atlas_cfg.AddMember("current_atlas_max_height", Value().SetUint(m_atlas_height), alloc);
     doc.AddMember("atlas_cfg", atlas_cfg, alloc);
 
-    doc.AddMember("mainwin_dpi", m_mainwin_dpi, alloc);
+    doc.AddMember("system_dpi", wfn::system_dpi, alloc);
 
     StringBuffer buffer;
     PrettyWriter<StringBuffer> writer(buffer);
@@ -1562,7 +1562,7 @@ inline auto ulx::context::read_cache() -> void {
         if (doc.HasParseError() || !doc.IsObject()) {
             ulx::log::err("context.hpp: ulx::context::read_cache(): doc.HasParseError() == true || doc.IsObject() == false, maybe try clearing all the cache and then retry.");
         } else {
-            if (!doc.HasMember("mainwin_dpi") || !doc["mainwin_dpi"].IsUint() || doc["mainwin_dpi"] != m_mainwin_dpi) {
+            if (!doc.HasMember("system_dpi") || !doc["system_dpi"].IsUint() || doc["system_dpi"] != wfn::system_dpi) {
                 m_texture_image_pixmaps = { __uii::vkalg::empty_pixmap(), pixmap(2048, 2048) };
                 return;
             }
@@ -1901,7 +1901,6 @@ inline auto ulx::context::create_shared_image() -> void {
 inline auto ulx::context::create_vulkan_objects(const appinfo& application_info, const renderinfo& render_info) -> void {
     m_rendercallback = render_info.get_render_callback();
     m_appid = application_info.get_application_id();
-    m_appversion = application_info.get_application_version();
 
     create_vulkan_instance();
     create_debug_messenger();

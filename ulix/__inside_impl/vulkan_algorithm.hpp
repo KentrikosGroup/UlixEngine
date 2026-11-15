@@ -11,7 +11,7 @@
 
 namespace __uii::vkalg {
     inline static constexpr glm::vec4 color_to_vec4(const ulx::color& color) {
-        return glm::vec4(color.red01(), color.green01(), color.blue01(), color.alpha01());
+        return glm::vec4(color.red1(), color.green1(), color.blue1(), color.alpha1());
     }
 
     inline auto get_device_score(const __uii::vkclses::physical_device_info& device_infos) -> ulx::u32 {

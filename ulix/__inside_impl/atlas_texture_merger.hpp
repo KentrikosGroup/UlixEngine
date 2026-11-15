@@ -13,11 +13,16 @@ namespace __uii::ats {
         }
         
         ulx::pixmap& current_pixmap = pixmaps[current];
-        if (current_x + pixmap.width() > current_pixmap.width()) {
+        
+        ulx::u32 padded_w = pixmap.width() + 1;
+        ulx::u32 padded_h = pixmap.height() + 1;
+        
+        if (current_x + padded_w > current_pixmap.width()) {
             current_y += max_height;
             current_x = 0;
             max_height = 0;
-        } if (current_y + pixmap.height() > current_pixmap.height()) {
+        } 
+        if (current_y + padded_h > current_pixmap.height()) {
             ++current;
             current_x = current_y = max_height = 0;
             pixmaps.push_back(ulx::pixmap(2048, 2048));
@@ -27,8 +32,8 @@ namespace __uii::ats {
         ulx::u32 x = current_x;
         ulx::u32 y = current_y;
         
-        if (pixmap.height() > max_height) max_height = pixmap.height();
-        current_x += pixmap.width();
+        if (padded_h > max_height) max_height = padded_h;
+        current_x += padded_w;
         
         for (ulx::u32 row = 0; row < pixmap.height(); ++row) {
             std::memcpy(
@@ -37,7 +42,7 @@ namespace __uii::ats {
                 pixmap.width() * 4
             );
         }
-    
+        
         ulx::f32 w = static_cast<ulx::f32>(current_pixmap.width());
         ulx::f32 h = static_cast<ulx::f32>(current_pixmap.height());
         return {current, {

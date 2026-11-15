@@ -83,7 +83,7 @@ namespace ulx {
 
         // window handle & window configs & native window states 
         private:
-            UINT m_mainwin_dpi; u32 m_native_titleh;
+            u32 m_native_titleh;
             
             HWND m_mainwin = nullptr, 
                  m_snapwin = nullptr;
@@ -110,7 +110,6 @@ namespace ulx {
             auto exit() const -> void;
             auto set_tick(const tickcallback& callback, u64 delay) -> void;
             
-            auto win_dpi() const -> UINT;
             auto win_show() const -> void;
             auto win_hide() const -> void;
             auto win_size() const -> ulx::size;
@@ -175,7 +174,6 @@ namespace ulx {
 
             path         m_cache_path;
             stablestr<>  m_appid;
-            u32          m_appversion;
             bool         m_texture_pushtag = true;
             u32          m_max_frames = 2,
                          m_current_frame = 0;
