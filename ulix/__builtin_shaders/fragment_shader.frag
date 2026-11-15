@@ -13,19 +13,19 @@ layout(location = 7)         in vec2 fragment_uv;
 layout(location = 8)         flat in uint fragment_tex_index;
 layout(location = 9)         flat in uint fragment_elemtype;
 layout(location = 10)        in vec4 fragment_data;
-
 layout(location = 0) out vec4 out_color;
+
+#define charelem 0
+#define svgelem 1
+#define pixmelem 2
+#define shadelem 3
 
 float rounded_box_sdf(vec2 position, vec2 bounds, float radius) {
     vec2 delta = abs(position) - bounds + radius;
     return length(max(delta, 0.0)) + min(max(delta.x, delta.y), 0.0) - radius;
 }
 
-#define charelem 0
-#define svgelem 1
-#define pixmelem 2
-
-void main() {
+void normal_element() {
     vec2 local_position = fragment_position - fragment_center;
     float dist = rounded_box_sdf(local_position, fragment_half_size, fragment_corner_radius);
     float fw = fwidth(dist);
@@ -133,4 +133,8 @@ void main() {
     vec3 color = fill_rgb + border_rgb;
     float total_alpha = clamp(fill_out_alpha + border_alpha, 0.0, 1.0);
     out_color = vec4(color, total_alpha);
+}
+
+void main() {
+    normal_element();
 }

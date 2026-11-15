@@ -12,11 +12,9 @@
 #include "color.hpp"
 #include "align.hpp"
 #include "pack.hpp"
-#include "__inside_impl/font_glyph_getter.hpp"
 #include "types.hpp"
 #include "ulix/__inside_impl/vulkan_algorithm.hpp"
 #include "ulix/path.hpp"
-#include "ulix/winfunc.hpp"
 #include <utility>
 #include <variant>
 
@@ -24,11 +22,6 @@
 #define ulx_lambda_else (ulx::element& slf)
 
 namespace ulx {
-    struct geom {
-        ulx::size size = ulx::size(0, 0);
-        ulx::point pos = ulx::point(0, 0);
-    };
-
     class context;
     class element {
         public: struct texture {
@@ -48,23 +41,28 @@ namespace ulx {
         };
 
         private:
+        strvw        m_id;
+        vec<element> m_elements;
+
+        point m_pos = {0, 0};
+        size  m_size = {0, 0};
+        u8    m_align = aligndef;
+        f32   m_padding = 0;
+        box   m_box = nonbox;
+
         color m_back_color = color::empty();
         color m_border_color = color::empty();
-        f32 m_corner_radius = 0;
-        f32 m_border_width = 0;
-        point m_pos = {0, 0};
-        size m_size = {0, 0};
-        vec<element> m_elements;
-        u8 m_align = aligndef;
-        f32 m_padding = 0;
-        box m_box = nonbox;
-        texture::variant m_texture;
-        strvw m_id;
+        f32   m_corner_radius = 0;
+        f32   m_border_width = 0;
+
         event::released m_released;
-        event::pressed m_pressed;
-        event::hovered m_hovered;
-        cursor m_curs = resetcur;
-        glm::vec4 m_data = {1.0f, 0, 1, 0};
+        event::pressed  m_pressed;
+        event::hovered  m_hovered;
+
+        texture::variant m_texture;
+        cursor    m_curs      = arrowcur;
+        glm::vec4 m_data      = {1.0f, 0, 1, 0};
+        bool      m_is_shadow = false;
 
         public: inline constexpr element() = default;
         public: inline constexpr element(strvw id): m_id(id) {}
@@ -159,97 +157,91 @@ namespace ulx {
             return *this;
         }
 
-        template<typename _released>
+        public: template<typename _released>
             requires expect<_released, event::released>
         inline constexpr auto released(_released&& event) -> element& {
             m_released = std::forward<_released>(event);
             return *this;
         }
 
-        template<typename _pressed>
+        public: template<typename _pressed>
             requires expect<_pressed, event::pressed>
         inline constexpr auto pressed(_pressed&& event) -> element& {
             m_pressed = std::forward<_pressed>(event);
             return *this;
         }
 
-        template<typename _hovered>
+        public: template<typename _hovered>
             requires expect<_hovered, event::hovered>
         inline constexpr auto hovered(_hovered&& event) -> element& {
             m_hovered = std::forward<_hovered>(event);
             return *this;
         }
 
-        inline constexpr auto call(const event::callback& fn) -> element& {
+        public: inline constexpr auto call(const event::callback& fn) -> element& {
             fn(*this);
             return *this;
         }
 
-        inline constexpr auto when(bool cond, const event::callback& fn) -> element& {
+        public: inline constexpr auto when(bool cond, const event::callback& fn) -> element& {
             if (cond)
                 fn(*this);
             return *this;
         }
 
-        inline constexpr auto when(bool cond, const event::callback& fn, const event::callback& else_fn) -> element& {
+        public: inline constexpr auto when(bool cond, const event::callback& fn, const event::callback& else_fn) -> element& {
             if (cond) fn(*this);
             else else_fn(*this);
             return *this;
         }
 
-        inline constexpr auto cur(cursor cursor) -> element& {
+        public: inline constexpr auto cur(cursor cursor) -> element& {
             m_curs = cursor;
             return *this;
         }
 
-        inline constexpr auto geom(const geom& geom) -> element& {
-            m_pos = ulx::point(geom.pos.x(), geom.pos.y() + 0.5);
-            m_size = geom.size;
+        public: inline constexpr auto shadow(const point& pos, bool inset = false) -> element& {
+            m_is_shadow = true;
+            m_data = {pos.x(), pos.y(), f32(inset), 0};
             return *this;
         }
 
-        template<typename t_vec4>
+        public: template<typename t_vec4>
+            requires expect<t_vec4, glm::vec4>
         inline constexpr auto data(t_vec4&& data) -> element& {
             m_data = std::forward<t_vec4>(data);
             return *this;
         }
 
-    public:
-        inline constexpr auto get_background_color() const -> const color& { return m_back_color; }
-        inline constexpr auto get_border_color() const -> const color& { return m_border_color; }
-        inline constexpr auto get_corner_radius() const -> f32 { return m_corner_radius; }
-        inline constexpr auto get_border_width() const -> f32 { return m_border_width; }
-        inline constexpr auto get_size() const -> const ulx::size& { return m_size; }
-        inline constexpr auto get_pos() const -> const point& { return m_pos; }
-        inline constexpr auto get_objects() const -> const vec<ulx::element>& { return m_elements; }
-        inline constexpr auto get_texture() const -> const texture::variant& { return m_texture; }
-        inline constexpr auto get_alignment() const -> u8 { return m_align; }
-        inline constexpr auto get_padding() const -> f32 { return m_padding; }
-        inline constexpr auto get_layout() const -> ulx::box { return m_box; }
-        inline constexpr auto get_id() const -> const strvw& { return m_id; }
-        inline constexpr auto get_released_event() const -> const event::released& { return m_released; }
-        inline constexpr auto get_pressed_event() const -> const event::pressed& { return m_pressed; }
-        inline constexpr auto get_hovered_event() const -> const event::hovered& { return m_hovered; }
-        inline constexpr auto get_cursor() const -> ulx::cursor { return m_curs; }
-        inline constexpr auto get_data() const -> const glm::vec4& { return m_data; }
-
-    public:
-        inline static constexpr auto box() -> element {
-            return element().size(ulx::size(0, 0));
-        }
+        public: inline constexpr auto get_background_color() const -> const color& { return m_back_color; }
+        public: inline constexpr auto get_border_color() const -> const color& { return m_border_color; }
+        public: inline constexpr auto get_corner_radius() const -> f32 { return m_corner_radius; }
+        public: inline constexpr auto get_border_width() const -> f32 { return m_border_width; }
+        public: inline constexpr auto get_size() const -> const ulx::size& { return m_size; }
+        public: inline constexpr auto get_pos() const -> const point& { return m_pos; }
+        public: inline constexpr auto get_objects() const -> const vec<ulx::element>& { return m_elements; }
+        public: inline constexpr auto get_texture() const -> const texture::variant& { return m_texture; }
+        public: inline constexpr auto get_alignment() const -> u8 { return m_align; }
+        public: inline constexpr auto get_padding() const -> f32 { return m_padding; }
+        public: inline constexpr auto get_layout() const -> ulx::box { return m_box; }
+        public: inline constexpr auto get_id() const -> const strvw& { return m_id; }
+        public: inline constexpr auto get_released_event() const -> const event::released& { return m_released; }
+        public: inline constexpr auto get_pressed_event() const -> const event::pressed& { return m_pressed; }
+        public: inline constexpr auto get_hovered_event() const -> const event::hovered& { return m_hovered; }
+        public: inline constexpr auto get_cursor() const -> ulx::cursor { return m_curs; }
+        public: inline constexpr auto get_data() const -> const glm::vec4& { return m_data; }
+        public: inline constexpr auto is_shadow() const -> bool { return m_is_shadow; }
     };
 }
 
 namespace std {
-    template<>
-    struct hash<ulx::element::texture::vector> {
+    template<> struct hash<ulx::element::texture::vector> {
         size_t operator()(const ulx::element::texture::vector& v) const noexcept {
             return make_hash(v.get<0>(), v.get<1>());
         }
     };
 
-    template<>
-    struct hash<ulx::element::texture::text> {
+    template<> struct hash<ulx::element::texture::text> {
         size_t operator()(const ulx::element::texture::text& t) const noexcept {
             return make_hash(t.get<0>(), t.get<1>());
         }

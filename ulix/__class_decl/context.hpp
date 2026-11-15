@@ -83,7 +83,7 @@ namespace ulx {
 
         // window handle & window configs & native window states 
         private:
-            u32 m_native_titleh;
+            u32 m_win_title_h, m_client_title_h;
             
             HWND m_mainwin = nullptr, 
                  m_snapwin = nullptr;

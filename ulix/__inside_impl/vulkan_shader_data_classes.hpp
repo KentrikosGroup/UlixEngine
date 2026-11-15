@@ -9,7 +9,8 @@ namespace __uii::vsdces {
     enum elemtype {
         charelem,
         svgelem,
-        pixmelem
+        pixmelem,
+        shadelem
     };
 
     struct vertex {

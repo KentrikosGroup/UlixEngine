@@ -11,6 +11,7 @@
 #include <d3d11.h>
 #include <future>
 #include <minwindef.h>
+#include <winuser.h>
 #define NOMINMAX
 #define WIN32_LEAN_AND_MEAN
 #define VK_USE_PLATFORM_WIN32_KHR
@@ -224,6 +225,7 @@ inline auto ulx::context::push_elements(
         point pos = elem.get_pos();
         u32 texture_index; u8 elemtype;
         __uii::ats::uv uv = update_texture_images(siz, elem, texture_index, elemtype);
+        if (elem.is_shadow()) elemtype = __uii::vsdces::shadelem;
 
         if (siz.width() == -2) siz = {parent_size.width(), siz.height()};
         if (siz.height() == -2) siz = {siz.width(), parent_size.height()};
@@ -383,7 +385,11 @@ inline auto ulx::context::win32_process(HWND hwnd, UINT message, WPARAM wparam, 
 
             // move titlebar out of client
             auto* params = reinterpret_cast<NCCALCSIZE_PARAMS*>(lparam);
-            params->rgrc[0].top -= ctx->m_native_titleh;
+            params->rgrc[0].top -= ctx->m_win_title_h;
+
+            // space for virtual titlebar
+            if (IsZoomed(hwnd))
+                params->rgrc[0].top += ctx->m_client_title_h;
 
             return DefWindowProcW(hwnd, WM_NCCALCSIZE, wparam, lparam);
         } case WM_PAINT: {
@@ -539,7 +545,8 @@ inline auto ulx::context::create_window(const wininfo& window_info, const appinf
     int caption_height = GetSystemMetrics(SM_CYCAPTION);
     int border_padding = GetSystemMetrics(SM_CXPADDEDBORDER);
     int border_size = GetSystemMetrics(SM_CXBORDER);
-    m_native_titleh = caption_height + border_padding + border_size*2 + 1;
+    m_win_title_h = caption_height + border_padding + border_size*2 + 1;
+    m_client_title_h = m_win_title_h - caption_height;
     SetWindowPos(m_mainwin, nullptr, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_FRAMECHANGED);
 
     RECT rect; GetClientRect(m_mainwin, &rect);
