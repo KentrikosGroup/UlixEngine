@@ -1,36 +1,35 @@
 #pragma once
-#include "path.hpp"
-#include "requires.hpp"
-#include "stablestr.hpp"
-#include <utility>
+#include <ulix/path.hpp>
+#include <ulix/requires.hpp>
+#include <ulix/stablestr.hpp>
 
 namespace ulx {
     class appinfo {
-        stablestr<> appid;
-        path cache_dir;
-        path icon_file_path;
+        stablestr<> m_appid;
+        path        m_cachedir;
+        path        m_iconfile;
 
         public: inline constexpr appinfo() = default;
 
         public: template<typename _stablestr, typename _path>
-            requires ulx::expect<_stablestr, stablestr<>> && ulx::expect<_path, path>
+            requires expect<_stablestr, stablestr<>> && expect<_path, path>
             inline constexpr appinfo(_stablestr&& appid, _path&& cache) {
 
-            this->appid = std::forward<_stablestr>(appid);
-            this->cache_dir = std::forward<_path>(cache);
+            this->m_appid = std::forward<_stablestr>(appid);
+            this->m_cachedir = std::forward<_path>(cache);
         }
 
         public: template<typename _path>
-            requires ulx::expect<_path, path>
+            requires expect<_path, path>
         inline constexpr auto icon(_path&& icon) -> appinfo& {
-            this->icon_file_path = std::forward<_path>(icon_file_path);
+            this->m_iconfile = std::forward<_path>(m_iconfile);
             return *this;
         }
 
         public: inline constexpr auto operator=(const appinfo& other) -> appinfo& = default;
 
-        public: inline constexpr auto get_application_id() const -> const stablestr<>& { return appid; }
-        public: inline constexpr auto get_cache_dir() const -> const path& { return cache_dir; }
-        public: inline constexpr auto get_icon_file_path() const -> const path& { return icon_file_path; }
+        public: inline constexpr auto get_appid() const -> const stablestr<>& { return m_appid; }
+        public: inline constexpr auto get_cachedir() const -> const path& { return m_cachedir; }
+        public: inline constexpr auto get_iconfile() const -> const path& { return m_iconfile; }
     };
 }

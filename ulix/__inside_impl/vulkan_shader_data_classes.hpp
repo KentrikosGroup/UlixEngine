@@ -5,7 +5,7 @@
 #include <vulkan/vulkan.h>
 #include <glm/glm.hpp>
 
-namespace __uii::vsdces {
+namespace ulx::vks {
     enum elemtype {
         charelem,
         svgelem,

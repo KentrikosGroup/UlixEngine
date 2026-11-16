@@ -1,12 +1,11 @@
 #pragma once
-
-#include <ulix/types.hpp>
-#include <format>
-#include <print>
 #define NOMINMAX
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #include <vulkan/vulkan_core.h>
+#include <ulix/types.hpp>
+#include <format>
+#include <print>
 
 #ifndef ULIXRELEASE
 namespace ulx::log {

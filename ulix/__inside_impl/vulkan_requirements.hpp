@@ -3,7 +3,7 @@
 #define VK_USE_PLATFORM_WIN32_KHR
 #include <vulkan/vulkan.h>
 
-namespace __uii::vkreqs {
+namespace ulx::vkr {
     constexpr const char* required_extensions[] = {
         VK_KHR_SURFACE_EXTENSION_NAME,
         VK_KHR_WIN32_SURFACE_EXTENSION_NAME,

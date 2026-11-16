@@ -18,13 +18,17 @@ namespace ulx {
         public: inline constexpr path(const std::filesystem::path& path): m_path(path.string()) { correct_path(); }
         public: inline constexpr auto operator==(const path& other) const -> bool = default;
 
-        public: inline constexpr auto read_string() const -> str {
+        public: inline constexpr auto read_str() const -> str {
             std::ifstream file_handle = std::ifstream(m_path.cstr());
+            if (!file_handle.is_open()) return {};
+            
             return ulx::str(std::istreambuf_iterator<char>(file_handle), std::istreambuf_iterator<char>());
         }
 
         public: inline constexpr auto read_bytes() const -> bytes {
             std::ifstream file_handle = std::ifstream(m_path.cstr(), std::ios::binary);
+            if (!file_handle.is_open()) return {};
+            
             return bytes(std::istreambuf_iterator<char>(file_handle), std::istreambuf_iterator<char>());
         }
 

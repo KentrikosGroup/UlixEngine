@@ -1,18 +1,15 @@
 #pragma once
-
-
-#include "../pixmap.hpp"
-#include "../__inside_impl/vulkan_classes.hpp"
-#include "../color.hpp"
-#include "../log.hpp"
-#include <ulix/path.hpp>
 #include <glm/glm.hpp>
-#include <fstream>
+#include <ulix/pixmap.hpp>
+#include <ulix/color.hpp>
+#include <ulix/path.hpp>
+#include <ulix/__inside_impl/vulkan_classes.hpp>
+#include <ulix/__inside_impl/log_utils.hpp>
 
-namespace __uii::vkalg {
-    inline auto get_device_score(const __uii::vkclses::physical_device_info& device_infos) -> ulx::u32 {
-        ulx::u64 device_local_bytes = 0;
-        for (ulx::u32 index = 0; index < device_infos.memory_properties.memoryHeapCount; ++index) {
+namespace ulx::vka {
+    inline auto get_device_score(const vkc::physical_device_info& device_infos) -> u32 {
+        u64 device_local_bytes = 0;
+        for (u32 index = 0; index < device_infos.memory_properties.memoryHeapCount; ++index) {
             if (!(device_infos.memory_properties.memoryHeaps[index].flags & VK_MEMORY_HEAP_DEVICE_LOCAL_BIT)) continue;
             device_local_bytes += device_infos.memory_properties.memoryHeaps[index].size;
         }
@@ -26,17 +23,17 @@ namespace __uii::vkalg {
             device_local_bytes / (1ULL << 30);
     }
 
-    inline auto find_memory_type(VkPhysicalDevice device, ulx::u32 type_filter, VkMemoryPropertyFlags properties) -> ulx::u32 {
+    inline auto find_memory_type(VkPhysicalDevice device, u32 type_filter, VkMemoryPropertyFlags properties) -> u32 {
         VkPhysicalDeviceMemoryProperties physical_device_memory_properties;
         vkGetPhysicalDeviceMemoryProperties(device, &physical_device_memory_properties);
 
-        for (ulx::u32 index = 0; index < physical_device_memory_properties.memoryTypeCount; index++) {
+        for (u32 index = 0; index < physical_device_memory_properties.memoryTypeCount; index++) {
             if ((type_filter & (1 << index)) && (physical_device_memory_properties.memoryTypes[index].propertyFlags & properties) == properties) {
                 return index;
             }
         }
 
-        ulx::log::err("Failed to find suitable memory type");
+        log::uerror("find suitable memory type failed");
     }
 
     inline auto start_single_time_command_buffer(VkDevice device, VkCommandPool command_pool) -> VkCommandBuffer {
@@ -47,30 +44,30 @@ namespace __uii::vkalg {
         command_buffer_allocate_info.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
         command_buffer_allocate_info.commandBufferCount = 1;
         command_buffer_allocate_info.commandPool = command_pool;
-        if (vkAllocateCommandBuffers(device, &command_buffer_allocate_info, &command_buffer))
-            ulx::log::err("Failed to allocate single time command buffer");
+        log::uassert(vkAllocateCommandBuffers(device, &command_buffer_allocate_info, &command_buffer) == VK_SUCCESS, 
+            "allocate single time command buffer failed");
 
         VkCommandBufferBeginInfo command_buffer_begin_info{};
         command_buffer_begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
         command_buffer_begin_info.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
-        if (vkBeginCommandBuffer(command_buffer, &command_buffer_begin_info))
-            ulx::log::err("Failed to begin single time command buffer");
+        log::uassert(vkBeginCommandBuffer(command_buffer, &command_buffer_begin_info) == VK_SUCCESS, 
+            "begin single time command buffer failed");
 
         return command_buffer;
     }
 
     inline auto end_single_time_command_buffer(VkDevice device, VkQueue queue, VkCommandPool command_pool, VkCommandBuffer command_buffer) -> void {
-        if (vkEndCommandBuffer(command_buffer))
-            ulx::log::err("Failed to end single time command buffer");
+        log::uassert(vkEndCommandBuffer(command_buffer) == VK_SUCCESS, 
+            "end single time command buffer failed");
 
         VkSubmitInfo submit_info{};
         submit_info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
         submit_info.commandBufferCount = 1;
         submit_info.pCommandBuffers = &command_buffer;
-        if (vkQueueSubmit(queue, 1, &submit_info, nullptr))
-            ulx::log::err("Failed to submit single time command buffer");
+        log::uassert(vkQueueSubmit(queue, 1, &submit_info, nullptr) == VK_SUCCESS, 
+            "submit single time command buffer failed");
 
-        vkQueueWaitIdle(queue);
+        log::uassert(vkQueueWaitIdle(queue) == VK_SUCCESS, "wait queue idle failed");
         vkFreeCommandBuffers(device, command_pool, 1, &command_buffer);
     }
 
@@ -102,12 +99,11 @@ namespace __uii::vkalg {
 
             src_stage = VK_PIPELINE_STAGE_TRANSFER_BIT;
             dst_stage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
-        } else ulx::log::err("Invalid layout format");
-
+        } else log::uerror("invalid layout format: old layout: {}, new layout: {}", (u32)old_layout, (u32)new_layout);
         vkCmdPipelineBarrier(single_buffer, src_stage, dst_stage, 0, 0, nullptr, 0, nullptr, 1, &image_memory_barrier);
     }
 
-    inline auto copy_buffer_to_image(VkDevice device, VkBuffer dst_buffer, VkCommandBuffer single_buffer, VkImage image, ulx::u32 width, ulx::u32 height, VkDeviceSize buffer_offset) -> void {
+    inline auto copy_buffer_to_image(VkDevice device, VkBuffer dst_buffer, VkCommandBuffer single_buffer, VkImage image, u32 width, u32 height, VkDeviceSize buffer_offset) -> void {
         VkBufferImageCopy buffer_image_copy_region{};
         buffer_image_copy_region.bufferOffset = buffer_offset;
         buffer_image_copy_region.bufferRowLength = 0;
@@ -133,36 +129,9 @@ namespace __uii::vkalg {
         image_view_create_info.subresourceRange.levelCount = 1;
         image_view_create_info.subresourceRange.baseArrayLayer = 0;
         image_view_create_info.subresourceRange.layerCount = 1;
-        if (vkCreateImageView(device, &image_view_create_info, nullptr, &image_view) != VK_SUCCESS)
-            ulx::log::err("Failed to create image view");
+        log::uassert(vkCreateImageView(device, &image_view_create_info, nullptr, &image_view) == VK_SUCCESS, 
+            "create image view failed");
 
         return image_view;
-    }
-
-    inline auto empty_pixmap() -> ulx::pixmap {
-        return ulx::pixmap(ulx::vec<ulx::u8>{0, 0, 0, 0}, 1, 1);
-    }
-
-    /* file ios */
-    inline auto read_cache(const ulx::path& file_path) -> ulx::vec<char> {
-        std::ifstream file = std::ifstream(file_path.str().cstr(), std::ios::ate | std::ios::binary);
-        if (!file.is_open()) ulx::log::err("Failed to read cache");
-        size_t file_size = (size_t) file.tellg();
-        ulx::vec<char> buffer = ulx::vec<char>(file_size);
-        file.seekg(0, std::ios::beg);
-        file.read(buffer.data(), file_size);
-        file.close();
-        return buffer;
-    }
-
-    inline void write_cache(const ulx::path& file_path, const ulx::vec<char>& buffer) {
-        std::ofstream file = std::ofstream(file_path.str().cstr(), std::ios::binary);
-        if (!file.is_open()) ulx::log::err("Failed to write cache");
-        file.write(buffer.data(), buffer.size());
-        file.close();
-    }
-
-    inline void ensure_cache_exists(const ulx::path& file_path) {
-        if (!file_path.exists()) write_cache(file_path, {});
     }
 }

@@ -1,10 +1,9 @@
 #pragma once
-#include "callback.hpp"
-#include "color.hpp"
-#include "easing.hpp"
-#include "element.hpp"
-#include "types.hpp"
-#include <utility>
+#include <ulix/callback.hpp>
+#include <ulix/color.hpp>
+#include <ulix/easing.hpp>
+#include <ulix/element.hpp>
+#include <ulix/types.hpp>
 
 #define ulx_lambda_hovered (ulx::context& ctx, ulx::element& slf)
 #define ulx_lambda_released (ulx::context& ctx, ulx::element& slf)

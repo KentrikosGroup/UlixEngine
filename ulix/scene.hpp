@@ -1,9 +1,9 @@
 #pragma once
-#include "requires.hpp"
-#include "types.hpp"
-#include "color.hpp"
-#include "element.hpp"
-#include "align.hpp"
+#include <ulix/requires.hpp>
+#include <ulix/types.hpp>
+#include <ulix/color.hpp>
+#include <ulix/element.hpp>
+#include <ulix/align.hpp>
 
 namespace ulx {
     class scene {

@@ -1,45 +1,23 @@
 #pragma once
-#include "__class_decl/context.hpp"
-#include "__inside_impl/atlas_texture_merger.hpp"
-#include "glm/ext/matrix_clip_space.hpp"
-#include "glm/ext/vector_float4.hpp"
-#include "stablestr.hpp"
-#include "ulix/__required_libraries/rapidjson/rapidjson.h"
-#include "ulix/font.hpp"
-#include "ulix/winattr.hpp"
-#include "vulkan/vulkan_core.h"
-#include <d3d11.h>
-#include <future>
-#include <minwindef.h>
-#include <winuser.h>
 #define NOMINMAX
 #define WIN32_LEAN_AND_MEAN
 #define VK_USE_PLATFORM_WIN32_KHR
-#include "align.hpp"
-#include "cursor.hpp"
-#include "box.hpp"
-#include "pixmap.hpp"
-#include "point.hpp"
-#include "size.hpp"
-#include "renderinfo.hpp"
-#include "scene.hpp"
-#include "log.hpp"
-#include "color.hpp"
-#include "element.hpp"
-#include "wininfo.hpp"
-#include "appinfo.hpp"
-#include "winfunc.hpp"
-#include "types.hpp"
-#include "__inside_impl/vulkan_classes.hpp"
-#include "__inside_impl/vulkan_shader_data_classes.hpp"
-#include "__inside_impl/vulkan_algorithm.hpp"
-#include "__inside_impl/vulkan_requirements.hpp"
-#include "__builtin_shaders/fragment_shader.inl"
-#include "__builtin_shaders/vertex_shader.inl"
-#include "__required_libraries/rapidjson/document.h"
-#include "__required_libraries/rapidjson/prettywriter.h"
-#include <vulkan/vulkan.h>
+#define UNICODE
+
 #include <windows.h>
+#include <future>
+#include <glm/ext/matrix_clip_space.hpp>
+#include <ulix/__class_decl/context.hpp>
+#include <ulix/__inside_impl/vulkan_classes.hpp>
+#include <ulix/__inside_impl/vulkan_shader_data_classes.hpp>
+#include <ulix/__inside_impl/vulkan_algorithm.hpp>
+#include <ulix/__inside_impl/vulkan_requirements.hpp>
+#include <ulix/__inside_impl/vulkan_cache_manage.hpp>
+#include <ulix/__builtin_shaders/fragment_shader.inl>
+#include <ulix/__builtin_shaders/vertex_shader.inl>
+#include <ulix/__required_libraries/rapidjson/document.h>
+#include <ulix/__required_libraries/rapidjson/prettywriter.h>
+
 #undef GetObject
 
 
@@ -50,24 +28,31 @@ inline auto ulx::context::update_push_constant() -> void {
         -1.0f, 1.0f);
 }
 
-inline auto ulx::context::update_texture_images(ulx::size& siz, const element& object, u32& texture_index, u8& elemtype) -> __uii::ats::uv {
-    const element::texture::variant& texture_variant = object.get_texture();
-    __uii::ats::uv resuv = {{0, 0}, {1, 1}};
+inline auto ulx::context::update_texture_images(ulx::size& siz, const element& elem, u32& texture_index, u8& elemtype) -> ats::uv {
+    const element::texture::variant& texture_variant = elem.get_texture();
+    ats::uv resuv = {{0, 0}, {1, 1}};
     std::visit([&](auto&& arg) {
         using T = std::decay_t<decltype(arg)>;
         if constexpr (std::same_as<T, element::texture::none>) {
             texture_index = 0;
-            elemtype = __uii::vsdces::pixmelem;
+            elemtype = vks::pixmelem;
         } else if constexpr (std::same_as<T, element::texture::bitmap>) {
-            elemtype = __uii::vsdces::pixmelem;
+            elemtype = vks::pixmelem;
             auto it = m_bitmap_cache.find(arg);
             if (it != m_bitmap_cache.end()) {
-                __uii::ats::idx idx = it->second;
+                ats::idx idx = it->second;
                 texture_index = idx.get<0>();
                 resuv = idx.get<1>();
             } else {
                 pixmap pm = pixmap::from_bitmap(arg);
-                __uii::ats::idx idx = __uii::ats::push_pixmap(m_texture_image_pixmaps, m_atlas_index, m_atlas_x, m_atlas_y, m_atlas_height, pm);
+                ats::idx idx;
+                if (elem.is_single_texture()) {
+                    m_texture_image_pixmaps.push_back(pm);
+                    idx = {static_cast<ulx::u32>(m_texture_image_pixmaps.size()-1), {{0, 0}, {1, 1}}};
+                } else {
+                    idx = ats::push_pixmap(m_texture_image_pixmaps, m_atlas_index, m_atlas_x, m_atlas_y, m_atlas_height, pm);
+                }
+
                 texture_index = idx.get<0>();
                 resuv = idx.get<1>();
                 m_bitmap_cache[arg] = idx;
@@ -78,10 +63,10 @@ inline auto ulx::context::update_texture_images(ulx::size& siz, const element& o
             if (siz.w() == -1) siz = {wfn::logical(uvsiz.w() * 2048), siz.h()};
             if (siz.h() == -1) siz = {siz.w(), wfn::logical(uvsiz.h() * 2048)};
         } else if constexpr (std::same_as<T, element::texture::vector>) {
-            elemtype = __uii::vsdces::svgelem;
+            elemtype = vks::svgelem;
             auto it = m_vector_cache.find(arg);
             if (it != m_vector_cache.end()) {
-                __uii::ats::idx idx = it->second;
+                ats::idx idx = it->second;
                 texture_index = idx.get<0>();
                 resuv = idx.get<1>();
             } else {
@@ -92,7 +77,14 @@ inline auto ulx::context::update_texture_images(ulx::size& siz, const element& o
                 f32 physical_height = wfn::physical(height);
 
                 pixmap pm = pixmap::from_vector(vecarg.get<0>(), physical_width, physical_height);
-                __uii::ats::idx idx = __uii::ats::push_pixmap(m_texture_image_pixmaps, m_atlas_index, m_atlas_x, m_atlas_y, m_atlas_height, pm);
+                ats::idx idx;
+                if (elem.is_single_texture()) {
+                    m_texture_image_pixmaps.push_back(pm);
+                    idx = {static_cast<ulx::u32>(m_texture_image_pixmaps.size()-1), {{0, 0}, {1, 1}}};
+                } else {
+                    idx = ats::push_pixmap(m_texture_image_pixmaps, m_atlas_index, m_atlas_x, m_atlas_y, m_atlas_height, pm);
+                }
+
                 texture_index = idx.get<0>();
                 resuv = idx.get<1>();
                 m_vector_cache[arg] = idx;
@@ -103,10 +95,10 @@ inline auto ulx::context::update_texture_images(ulx::size& siz, const element& o
             if (siz.w() == -1) siz = {wfn::logical(uvsiz.w() * 1024), siz.h()};
             if (siz.h() == -1) siz = {siz.w(), wfn::logical(uvsiz.h() * 1024)};
         } else if constexpr (std::same_as<T, element::texture::text>) {
-            elemtype = __uii::vsdces::charelem;
+            elemtype = vks::charelem;
             auto it = m_font_cache.find(arg);
             if (it != m_font_cache.end()) {
-                __uii::ats::idx idx = it->second;
+                ats::idx idx = it->second;
                 texture_index = idx.get<0>();
                 resuv = idx.get<1>();
             } else {
@@ -114,7 +106,15 @@ inline auto ulx::context::update_texture_images(ulx::size& siz, const element& o
                 font font = vecarg.get<1>();
                 font.size(wfn::physical(font.get_size()));
                 pixmap pm = pixmap::from_char(vecarg.get<0>(), font);
-                __uii::ats::idx idx = __uii::ats::push_pixmap(m_texture_image_pixmaps, m_atlas_index, m_atlas_x, m_atlas_y, m_atlas_height, pm);
+
+                ats::idx idx;
+                if (elem.is_single_texture()) {
+                    m_texture_image_pixmaps.push_back(pm);
+                    idx = {static_cast<ulx::u32>(m_texture_image_pixmaps.size()-1), {{0, 0}, {1, 1}}};
+                } else {
+                    idx = ats::push_pixmap(m_texture_image_pixmaps, m_atlas_index, m_atlas_x, m_atlas_y, m_atlas_height, pm);
+                }
+
                 texture_index = idx.get<0>();
                 resuv = idx.get<1>();
                 m_font_cache[arg] = idx;
@@ -133,7 +133,7 @@ inline auto ulx::context::push_element(
     const element& elem,
     const size& siz, const point& pos,
     u32& render_index, u32 texture_index,
-    __uii::ats::uv& uv, u8 elemtype
+    ats::uv& uv, u8 elemtype
 ) -> void {
     const color& background_color = elem.get_background_color();
     const color& border_color = elem.get_border_color();
@@ -224,8 +224,8 @@ inline auto ulx::context::push_elements(
         ulx::size siz = elem.get_size();
         point pos = elem.get_pos();
         u32 texture_index; u8 elemtype;
-        __uii::ats::uv uv = update_texture_images(siz, elem, texture_index, elemtype);
-        if (elem.is_shadow()) elemtype = __uii::vsdces::shadelem;
+        ats::uv uv = update_texture_images(siz, elem, texture_index, elemtype);
+        if (elem.is_shadow()) elemtype = vks::shadelem;
 
         if (siz.w() == -2) siz = {parent_size.w(), siz.h()};
         if (siz.h() == -2) siz = {siz.w(), parent_size.h()};
@@ -446,23 +446,26 @@ inline auto ulx::context::win32_process(HWND hwnd, UINT message, WPARAM wparam, 
 
             switch (ctx->m_cursor) {
                 case resetcur: return DefWindowProcW(hwnd, message, wparam, lparam);
-                case arrowcur: SetCursor(LoadCursor(nullptr, IDC_ARROW)); return true;
-                case handcur: SetCursor(LoadCursor(nullptr, IDC_HAND)); return true;
-                case ibeamcur: SetCursor(LoadCursor(nullptr, IDC_IBEAM)); return true;
-                case crosscur: SetCursor(LoadCursor(nullptr, IDC_CROSS)); return true;
-                case waitcur: SetCursor(LoadCursor(nullptr, IDC_WAIT)); return true;
-                case vhsizcur: SetCursor(LoadCursor(nullptr, IDC_SIZEWE)); return true;
-                case vsizcur: SetCursor(LoadCursor(nullptr, IDC_SIZENS)); return true;
-                case hsizcur: SetCursor(LoadCursor(nullptr, IDC_SIZEWE)); return true;
-                case nocur: SetCursor(LoadCursor(nullptr, IDC_NO)); return true;
-                case helpcur: SetCursor(LoadCursor(nullptr, IDC_HELP)); return true;
-                case uparrowcur: SetCursor(LoadCursor(nullptr, IDC_UPARROW)); return true;
-                case appstartingcur: SetCursor(LoadCursor(nullptr, IDC_APPSTARTING)); return true;
-                case ldiagcur: SetCursor(LoadCursor(nullptr, IDC_SIZENWSE)); return true;
-                case rdiagcur: SetCursor(LoadCursor(nullptr, IDC_SIZENESW)); return true;
-                case sizallcur: SetCursor(LoadCursor(nullptr, IDC_SIZEALL)); return true;
+                case arrowcur: SetCursor(LoadCursorW(nullptr, IDC_ARROW)); return true;
+                case handcur: SetCursor(LoadCursorW(nullptr, IDC_HAND)); return true;
+                case ibeamcur: SetCursor(LoadCursorW(nullptr, IDC_IBEAM)); return true;
+                case crosscur: SetCursor(LoadCursorW(nullptr, IDC_CROSS)); return true;
+                case waitcur: SetCursor(LoadCursorW(nullptr, IDC_WAIT)); return true;
+                case vhsizcur: SetCursor(LoadCursorW(nullptr, IDC_SIZEWE)); return true;
+                case vsizcur: SetCursor(LoadCursorW(nullptr, IDC_SIZENS)); return true;
+                case hsizcur: SetCursor(LoadCursorW(nullptr, IDC_SIZEWE)); return true;
+                case nocur: SetCursor(LoadCursorW(nullptr, IDC_NO)); return true;
+                case helpcur: SetCursor(LoadCursorW(nullptr, IDC_HELP)); return true;
+                case uparrowcur: SetCursor(LoadCursorW(nullptr, IDC_UPARROW)); return true;
+                case appstartingcur: SetCursor(LoadCursorW(nullptr, IDC_APPSTARTING)); return true;
+                case ldiagcur: SetCursor(LoadCursorW(nullptr, IDC_SIZENWSE)); return true;
+                case rdiagcur: SetCursor(LoadCursorW(nullptr, IDC_SIZENESW)); return true;
+                case sizallcur: SetCursor(LoadCursorW(nullptr, IDC_SIZEALL)); return true;
             }
 
+            return DefWindowProcW(hwnd, message, wparam, lparam);
+        } case WM_DPICHANGED: {
+            wfn::system_dpi = GetDpiForSystem();
             return DefWindowProcW(hwnd, message, wparam, lparam);
         }
     }
@@ -487,7 +490,7 @@ inline auto ulx::context::create_window(const wininfo& window_info, const appinf
     stablestr<> window_class_name = window_title.copy() + "_WindowClass";
     wstr window_wide_class_name = wstr(window_class_name.begin(), window_class_name.end());
     wstr window_wide_title = wstr(window_title.begin(), window_title.end());
-    path icon_file_path = app_info.get_icon_file_path();
+    path icon_file_path = app_info.get_iconfile();
     pathstr icon_file_path_str = icon_file_path.str();
     wstr window_wide_icon = wstr(icon_file_path_str.begin(), icon_file_path_str.end());
 
@@ -530,7 +533,7 @@ inline auto ulx::context::create_window(const wininfo& window_info, const appinf
     main_window_class.style = CS_HREDRAW | CS_VREDRAW;
     main_window_class.lpfnWndProc = win32_process;
     main_window_class.hInstance = wfn::hinstance;
-    main_window_class.hCursor = LoadCursorW(NULL, wfn::make_int_resource(32512));
+    main_window_class.hCursor = LoadCursorW(NULL, IDC_ARROW);
     main_window_class.lpszClassName = window_wide_class_name.c_str();
     if (icon_file_path.exists()) {
         main_window_class.hIcon = reinterpret_cast<HICON>(LoadImageW(
@@ -570,7 +573,7 @@ inline auto ulx::context::create_window(const wininfo& window_info, const appinf
 }
 
 inline constexpr ulx::context::context(const appinfo& application_info, const wininfo& window_info, const renderinfo& render_info) {
-    m_cache_path = application_info.get_cache_dir();
+    m_cache_path = application_info.get_cachedir();
     create_window(window_info, application_info);
     read_cache();
     create_vulkan_objects(application_info, render_info);
@@ -635,9 +638,9 @@ inline auto ulx::context::create_vulkan_instance() -> void {
     vulkan_instance_create_info.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
     vulkan_instance_create_info.pApplicationInfo = &vulkan_application_info;
     vulkan_instance_create_info.enabledLayerCount = 0;
-    vulkan_instance_create_info.ppEnabledLayerNames = __uii::vkreqs::required_validation_layer;
-    vulkan_instance_create_info.enabledExtensionCount = __uii::vkreqs::required_extension_count;
-    vulkan_instance_create_info.ppEnabledExtensionNames = __uii::vkreqs::required_extensions;
+    vulkan_instance_create_info.ppEnabledLayerNames = vkr::required_validation_layer;
+    vulkan_instance_create_info.enabledExtensionCount = vkr::required_extension_count;
+    vulkan_instance_create_info.ppEnabledExtensionNames = vkr::required_extensions;
     VkDebugUtilsMessengerCreateInfoEXT debug_utils_messenger_create_info;
 
     #ifndef ULIXRELEASE
@@ -706,14 +709,14 @@ inline auto ulx::context::select_physical_device() -> void {
     vkEnumeratePhysicalDevices(m_vulkan_instance, &physical_device_count, physical_devices.data());
 
     VkPhysicalDevice alternative_device = VK_NULL_HANDLE;
-    __uii::vkclses::physical_device_info alternative_device_infos;
+    vkc::physical_device_info alternative_device_infos;
     u32 last_discrete_gpu_score = 0;
     u32 last_alternative_device_score = 0;
 
     for (auto& device : physical_devices) {
-        __uii::vkclses::physical_device_info device_infos = __uii::vkclses::physical_device_info(device, m_window_surface);
+        auto device_infos = vkc::physical_device_info(device, m_window_surface);
         if (!device_infos.is_suitable()) continue;
-        u32 score = __uii::vkalg::get_device_score(device_infos);
+        u32 score = vka::get_device_score(device_infos);
         if (device_infos.match_gpu_type(VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU) && score > last_discrete_gpu_score) {
             last_discrete_gpu_score = score;
             m_physical_device = device;
@@ -761,13 +764,13 @@ inline auto ulx::context::create_logical_device() -> void {
     device_create_info.queueCreateInfoCount = static_cast<u32>(device_queue_create_infos.size());
     device_create_info.pQueueCreateInfos = device_queue_create_infos.data();
     device_create_info.pEnabledFeatures = &physical_device_features;
-    device_create_info.enabledExtensionCount = __uii::vkreqs::enabled_extension_count;
-    device_create_info.ppEnabledExtensionNames = __uii::vkreqs::enabled_extensions;
+    device_create_info.enabledExtensionCount = vkr::enabled_extension_count;
+    device_create_info.ppEnabledExtensionNames = vkr::enabled_extensions;
     device_create_info.pNext = &features12;
     log::vk(vkCreateDevice(m_physical_device, &device_create_info, VK_NULL_HANDLE, &m_logical_device),
         "context.hpp: ulx::context::create_logical_device(): vkCreateDevice() != VK_SUCCESS");
 
-    m_device_queues = __uii::vkclses::device_queues(m_logical_device, m_physical_device_infos);
+    m_device_queues = vkc::device_queues(m_logical_device, m_physical_device_infos);
 }
 
 inline auto ulx::context::create_window_surface() -> void {
@@ -826,10 +829,12 @@ inline auto ulx::context::create_graphics_pipeline() -> void {
     VkPipelineDynamicStateCreateInfo pipeline_dynamic_state_create_info{};
     pipeline_dynamic_state_create_info.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
     pipeline_dynamic_state_create_info.dynamicStateCount = 2;
-    pipeline_dynamic_state_create_info.pDynamicStates = __uii::vkreqs::dynamic_states;
+    pipeline_dynamic_state_create_info.pDynamicStates = vkr::dynamic_states;
 
-    VkVertexInputBindingDescription vertex_input_binding_description = __uii::vsdces::vertex::get_binding_description();
-    vec<VkVertexInputAttributeDescription> vertex_input_attribute_descriptions = __uii::vsdces::vertex::get_attribute_descriptions();
+    VkVertexInputBindingDescription vertex_input_binding_description =
+        vks::vertex::get_binding_description();
+    vec<VkVertexInputAttributeDescription> vertex_input_attribute_descriptions =
+        vks::vertex::get_attribute_descriptions();
 
     VkPipelineVertexInputStateCreateInfo pipeline_vertex_input_state_create_info{};
     pipeline_vertex_input_state_create_info.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
@@ -908,7 +913,7 @@ inline auto ulx::context::create_graphics_pipeline() -> void {
     VkPushConstantRange push_constant_range{};
     push_constant_range.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
     push_constant_range.offset = 0;
-    push_constant_range.size = sizeof(__uii::vsdces::pushconstant);
+    push_constant_range.size = sizeof(vks::pushconstant);
 
     VkPipelineLayoutCreateInfo pipeline_layout_create_info{};
     pipeline_layout_create_info.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
@@ -921,8 +926,8 @@ inline auto ulx::context::create_graphics_pipeline() -> void {
 
 
     path cache_file_path = m_cache_path.with("vkcache.bin");
-    __uii::vkalg::ensure_cache_exists(cache_file_path);
-    vec<char> cache_data = __uii::vkalg::read_cache(cache_file_path);
+    vcm::ensure_cache_exists(cache_file_path);
+    vec<char> cache_data = vcm::read_cache(cache_file_path);
     VkPipelineCacheCreateInfo pipeline_cache_create_info{};
     pipeline_cache_create_info.sType = VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO;
     pipeline_cache_create_info.initialDataSize = cache_data.size();
@@ -958,7 +963,7 @@ inline auto ulx::context::create_graphics_pipeline() -> void {
     vkGetPipelineCacheData(m_logical_device, pipeline_cache, &cache_data_size, nullptr);
     new_cache_data.resize(cache_data_size);
     vkGetPipelineCacheData(m_logical_device, pipeline_cache, &cache_data_size, new_cache_data.data());
-    __uii::vkalg::write_cache(cache_file_path.str(), new_cache_data);
+    vcm::write_cache(cache_file_path.str(), new_cache_data);
     vkDestroyPipelineCache(m_logical_device, pipeline_cache, nullptr);
     vkDestroyShaderModule(m_logical_device, fragment_shader_module, VK_NULL_HANDLE);
     vkDestroyShaderModule(m_logical_device, vertex_shader_module, VK_NULL_HANDLE);
@@ -1048,7 +1053,7 @@ inline auto ulx::context::create_texture_buffer() -> void {
     VkDeviceSize texture_size = create_texture_images() * 1.5;
 
     m_texture_size = texture_size;
-    m_texture_buffer = __uii::vkclses::buffer(
+    m_texture_buffer = vkc::buffer(
         m_physical_device, m_logical_device, m_texture_size,
         VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
         VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
@@ -1056,13 +1061,13 @@ inline auto ulx::context::create_texture_buffer() -> void {
 }
 
 inline auto ulx::context::create_vertex_buffer() -> void {
-    VkDeviceSize size = m_vertices.size() * sizeof(__uii::vsdces::vertex);
+    VkDeviceSize size = m_vertices.size() * sizeof(vks::vertex);
 
     if (m_vertex_size < size) {
         if (m_vertex_buffer.valid()) m_vertex_buffer.release(m_logical_device);
         m_vertex_size = size * 1.5;
 
-        m_vertex_buffer = __uii::vkclses::buffer(
+        m_vertex_buffer = vkc::buffer(
             m_physical_device, m_logical_device, m_vertex_size,
             VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
             VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
@@ -1077,7 +1082,7 @@ inline auto ulx::context::create_index_buffer() -> void {
         if (m_index_buffer.valid()) m_index_buffer.release(m_logical_device);
         m_index_size = size * 1.5;
 
-        m_index_buffer = __uii::vkclses::buffer(
+        m_index_buffer = vkc::buffer(
             m_physical_device, m_logical_device, m_index_size,
             VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
             VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
@@ -1089,7 +1094,7 @@ inline auto ulx::context::update_object_buffers() -> void {
     create_vertex_buffer();
     create_index_buffer();
 
-    m_vertex_buffer.map_memory(m_logical_device, m_vertices.data(), m_vertices.size() * sizeof(__uii::vsdces::vertex));
+    m_vertex_buffer.map_memory(m_logical_device, m_vertices.data(), m_vertices.size() * sizeof(vks::vertex));
     m_index_buffer.map_memory(m_logical_device, m_indices.data(), m_indices.size() * sizeof(u32));
 }
 
@@ -1128,12 +1133,12 @@ inline auto ulx::context::record_command_buffer(VkCommandBuffer command_buffer, 
     vkCmdSetScissor(command_buffer, 0, 1, &scissor);
 
     constexpr VkDeviceSize offsets[] = {0};
-    vkCmdBindVertexBuffers(command_buffer, 0, 1, &m_vertex_buffer.buf, offsets);
-    vkCmdBindIndexBuffer(command_buffer, m_index_buffer.buf, 0, VK_INDEX_TYPE_UINT32);
+    vkCmdBindVertexBuffers(command_buffer, 0, 1, &m_vertex_buffer.m_buffer, offsets);
+    vkCmdBindIndexBuffer(command_buffer, m_index_buffer.m_buffer, 0, VK_INDEX_TYPE_UINT32);
 
     vkCmdBindDescriptorSets(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline_layout, 0, 1, &m_descriptor_sets[m_current_frame], 0, nullptr);
 
-    vkCmdPushConstants(command_buffer, m_pipeline_layout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(__uii::vsdces::pushconstant), &m_pushconstant);
+    vkCmdPushConstants(command_buffer, m_pipeline_layout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(vks::pushconstant), &m_pushconstant);
     vkCmdDrawIndexed(command_buffer, static_cast<u32>(m_indices.size()), 1, 0, 0, 0);
 
     vkCmdEndRenderPass(command_buffer);
@@ -1197,7 +1202,7 @@ inline auto ulx::context::render_frame() -> void {
 
 
 
-    constexpr ulx::strvw elocation = "__inside_impl/dxgi_present.hpp: namespace __uii::dp: struct dxgi_swapchain: present_shared(ulx::u32):";
+    constexpr ulx::strvw elocation = "__inside_impl/dxgi_present.hpp: namespace dp: struct dxgi_swapchain: present_shared(ulx::u32):";
     ID3D11Texture2D* backbuffer = nullptr;
     ulx::log::hr(m_swapchain->GetBuffer(0, IID_PPV_ARGS(&backbuffer)),
         "{} m_swapchain->GetBuffer() != S_OK", elocation);
@@ -1322,7 +1327,7 @@ inline auto ulx::context::map_texture_images() -> void {
     VkMemoryAllocateInfo memory_allocate_info{};
     memory_allocate_info.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
     memory_allocate_info.allocationSize = current_offset;
-    memory_allocate_info.memoryTypeIndex = __uii::vkalg::find_memory_type(m_physical_device, memory_type_bits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+    memory_allocate_info.memoryTypeIndex = vka::find_memory_type(m_physical_device, memory_type_bits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
     log::vk(vkAllocateMemory(m_logical_device, &memory_allocate_info, nullptr, &m_texture_image_memory),
         "context.hpp: ulx::context::map_texture_images(): vkAllocateMemory() != VK_SUCCESS");
 
@@ -1330,8 +1335,8 @@ inline auto ulx::context::map_texture_images() -> void {
         vkBindImageMemory(m_logical_device, m_texture_images[index].m_image, m_texture_image_memory, offsets[index]);
 
     void* mapped; VkDeviceSize staging_offset = 0;
-    vkMapMemory(m_logical_device, m_texture_buffer.buffer_memory, 0, staging_total_size, 0, &mapped);
-    VkCommandBuffer single_time_command_buffer = __uii::vkalg::start_single_time_command_buffer(m_logical_device, m_command_pool);
+    vkMapMemory(m_logical_device, m_texture_buffer.m_memory, 0, staging_total_size, 0, &mapped);
+    VkCommandBuffer single_time_command_buffer = vka::start_single_time_command_buffer(m_logical_device, m_command_pool);
     for (u64 index = 0; index < m_texture_image_pixmaps.size(); index++) {
         VkImage image = m_texture_images[index].m_image;
         pixmap pixmap = m_texture_image_pixmaps[index];
@@ -1341,12 +1346,12 @@ inline auto ulx::context::map_texture_images() -> void {
         offsets[index] = staging_offset;
         staging_offset += pixmap.pixel_size();
 
-        __uii::vkalg::transition_image_layout(m_logical_device, single_time_command_buffer, image, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
-        __uii::vkalg::copy_buffer_to_image(m_logical_device, m_texture_buffer.buf, single_time_command_buffer, image, size.w(), size.h(), offsets[index]);
-        __uii::vkalg::transition_image_layout(m_logical_device, single_time_command_buffer, image, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+        vka::transition_image_layout(m_logical_device, single_time_command_buffer, image, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+        vka::copy_buffer_to_image(m_logical_device, m_texture_buffer.m_buffer, single_time_command_buffer, image, size.w(), size.h(), offsets[index]);
+        vka::transition_image_layout(m_logical_device, single_time_command_buffer, image, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
     }
-    __uii::vkalg::end_single_time_command_buffer(m_logical_device, m_device_queues.graphics_queue, m_command_pool, single_time_command_buffer);
-    vkUnmapMemory(m_logical_device, m_texture_buffer.buffer_memory);
+    vka::end_single_time_command_buffer(m_logical_device, m_device_queues.graphics_queue, m_command_pool, single_time_command_buffer);
+    vkUnmapMemory(m_logical_device, m_texture_buffer.m_memory);
 }
 
 inline auto ulx::context::create_texture_image(ulx::u64 index) -> VkMemoryRequirements {
@@ -1379,7 +1384,7 @@ inline auto ulx::context::create_texture_image(ulx::u64 index) -> VkMemoryRequir
 inline auto ulx::context::create_texture_image_views() -> void {
     for (u64 index = 0; index < m_texture_images.size(); ++index)
         m_texture_images[index].m_image_view =
-            __uii::vkalg::create_image_view(m_logical_device, m_texture_images[index].m_image, VK_FORMAT_R8G8B8A8_UNORM);
+            vka::create_image_view(m_logical_device, m_texture_images[index].m_image, VK_FORMAT_R8G8B8A8_UNORM);
 }
 
 inline auto ulx::context::create_texture_image_sampler() -> void {
@@ -1455,6 +1460,10 @@ inline auto ulx::context::save_texture_caches() -> void {
     vec<std::future<void>> pending_save_tasks;
     u32 i = 0;
     for (auto& pixmap : m_texture_image_pixmaps) {
+        if (i != 0 && (pixmap.w() != 2048 || pixmap.h() != 2048)) {
+            i++;
+            continue;
+        }
         pending_save_tasks.push_back(std::async(std::launch::async, [&pixmap, i, this]() {
             pixmap.savepng(m_cache_path.with("texture_cache_" + pathstr::from(i) + ".png"));
         }));
@@ -1471,7 +1480,11 @@ inline auto ulx::context::save_texture_caches() -> void {
     Value bitmap(kObjectType);
         for (auto& cache : m_bitmap_cache) {
             u32 idx = cache.second.get<0>();
-            __uii::ats::uv uv = cache.second.get<1>();
+            pixmap& pm = m_texture_image_pixmaps[idx];
+            if (pm.w() != 2048 || pm.h() != 2048)
+                continue;
+
+            ats::uv uv = cache.second.get<1>();
 
             Value value(kArrayType);
                 value.PushBack(idx, alloc);
@@ -1489,6 +1502,11 @@ inline auto ulx::context::save_texture_caches() -> void {
 
     Value vector(kArrayType);
         for (auto& cache : m_vector_cache) {
+            u32 idx = cache.second.get<0>();
+            pixmap& pm = m_texture_image_pixmaps[idx];
+            if (pm.w() != 2048 || pm.h() != 2048)
+                continue;
+
             Value key(kArrayType);
                 path ps = cache.first.get<0>();
                 size sz2 = cache.first.get<1>();
@@ -1498,8 +1516,7 @@ inline auto ulx::context::save_texture_caches() -> void {
                 key.PushBack(sz2.h(), alloc);
             vector.PushBack(key, alloc);
 
-            u32 idx = cache.second.get<0>();
-            __uii::ats::uv uv = cache.second.get<1>();
+            ats::uv uv = cache.second.get<1>();
             Value value(kArrayType);
                 value.PushBack(idx, alloc);
                 point pos = uv.get<0>();
@@ -1514,6 +1531,11 @@ inline auto ulx::context::save_texture_caches() -> void {
 
     Value font_(kArrayType);
         for (auto& cache : m_font_cache) {
+            u32 idx = cache.second.get<0>();
+            pixmap& pm = m_texture_image_pixmaps[idx];
+            if (pm.w() != 2048 || pm.h() != 2048)
+                continue;
+
             Value entry(kArrayType);
             Value char_val(cache.first.get<0>().cstr(), alloc);
             entry.PushBack(char_val, alloc);
@@ -1524,7 +1546,7 @@ inline auto ulx::context::save_texture_caches() -> void {
             entry.PushBack(f.get_size(), alloc);
             entry.PushBack(cache.second.get<0>(), alloc);
 
-            __uii::ats::uv uv = cache.second.get<1>();
+            ats::uv uv = cache.second.get<1>();
             point pos = uv.get<0>();
             size sz = uv.get<1>();
             entry.PushBack(pos.x(), alloc);
@@ -1574,14 +1596,14 @@ inline auto ulx::context::read_cache() -> void {
     path json_path = m_cache_path.with("texture_cache.json");
     if (json_path.exists()) {
         Document doc;
-        str json_str = json_path.read_string();
+        str json_str = json_path.read_str();
         doc.Parse(json_str.c_str());
 
         if (doc.HasParseError() || !doc.IsObject()) {
             ulx::log::err("context.hpp: ulx::context::read_cache(): doc.HasParseError() == true || doc.IsObject() == false, maybe try clearing all the cache and then retry.");
         } else {
             if (!doc.HasMember("system_dpi") || !doc["system_dpi"].IsUint() || doc["system_dpi"] != wfn::system_dpi) {
-                m_texture_image_pixmaps = { __uii::vkalg::empty_pixmap(), pixmap(2048, 2048) };
+                m_texture_image_pixmaps = { pixmap(1, 1), pixmap(2048, 2048) };
                 return;
             }
 
@@ -1592,8 +1614,8 @@ inline auto ulx::context::read_cache() -> void {
                     u32 idx = arr[0].GetUint();
                     point pos(arr[1].GetFloat(), arr[2].GetFloat());
                     size sz(arr[3].GetFloat(), arr[4].GetFloat());
-                    __uii::ats::uv uv = {pos, sz};
-                    __uii::ats::idx cache_entry = {idx, uv};
+                    ats::uv uv = {pos, sz};
+                    ats::idx cache_entry = {idx, uv};
                     m_bitmap_cache[path(member.name.GetString())] = cache_entry;
                 }
             }
@@ -1611,8 +1633,8 @@ inline auto ulx::context::read_cache() -> void {
                     u32 idx = val_arr[0].GetUint();
                     point pos(val_arr[1].GetFloat(), val_arr[2].GetFloat());
                     size sz(val_arr[3].GetFloat(), val_arr[4].GetFloat());
-                    __uii::ats::uv uv = {pos, sz};
-                    __uii::ats::idx cache_entry = {idx, uv};
+                    ats::uv uv = {pos, sz};
+                    ats::idx cache_entry = {idx, uv};
                     m_vector_cache[key] = cache_entry;
                 }
             }
@@ -1632,8 +1654,8 @@ inline auto ulx::context::read_cache() -> void {
                     point pos(entry[4].GetFloat(), entry[5].GetFloat());
                     size sz(entry[6].GetFloat(), entry[7].GetFloat());
 
-                    __uii::ats::uv uv = {pos, sz};
-                    __uii::ats::idx cache_entry = {idx, uv};
+                    ats::uv uv = {pos, sz};
+                    ats::idx cache_entry = {idx, uv};
                     m_font_cache[key] = cache_entry;
                 }
             }
@@ -1649,7 +1671,7 @@ inline auto ulx::context::read_cache() -> void {
     }
 
     if (pending_read_tasks.empty()) {
-        m_texture_image_pixmaps = { __uii::vkalg::empty_pixmap(), pixmap(2048, 2048) };
+        m_texture_image_pixmaps = { pixmap(1, 1), pixmap(2048, 2048) };
         return;
     }
     for (auto& task : pending_read_tasks) {
@@ -1777,7 +1799,8 @@ inline auto ulx::context::allocate_shared_image_memory() -> void {
 }
 
 inline auto ulx::context::create_shared_image_view() -> void {
-    m_shared_image.m_image_view = __uii::vkalg::create_image_view(m_logical_device, m_shared_image.m_image, VK_FORMAT_R8G8B8A8_UNORM);
+    m_shared_image.m_image_view = vka::create_image_view(m_logical_device,
+        m_shared_image.m_image, VK_FORMAT_R8G8B8A8_UNORM);
 }
 
 inline auto ulx::context::create_shared_framebuffer() -> void {
@@ -1918,7 +1941,7 @@ inline auto ulx::context::create_shared_image() -> void {
 
 inline auto ulx::context::create_vulkan_objects(const appinfo& application_info, const renderinfo& render_info) -> void {
     m_rendercallback = render_info.get_render_callback();
-    m_appid = application_info.get_application_id();
+    m_appid = application_info.get_appid();
 
     create_vulkan_instance();
     create_debug_messenger();

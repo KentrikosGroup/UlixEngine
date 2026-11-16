@@ -1,7 +1,7 @@
 #pragma once
-#include "glm/ext/vector_float4.hpp"
-#include "types.hpp"
-#include "ulix/autohasher.hpp"
+#include <glm/ext/vector_float4.hpp>
+#include <ulix/types.hpp>
+#include <ulix/autohasher.hpp>
 
 namespace ulx {
     class color {

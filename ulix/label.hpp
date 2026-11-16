@@ -6,7 +6,7 @@ namespace ulx {
     class label: public element {
         public: inline constexpr label() = default;
         public: inline constexpr label(strvw id, const str& txt, const font& font = {}, const color& color = {255, 255, 255}) {
-            auto metrics = __uii::fgg::line_metrics(font);
+            auto metrics = fgg::line_metrics(font);
             f32 height = wfn::logical(metrics.template get<2>());
 
             size({0, height});
@@ -14,7 +14,7 @@ namespace ulx {
             box(horbox).pad(0);
 
             for (u64 i = 0; i < txt.size(); ) {
-                u32 cp = __uii::fgg::decode_utf8(txt, i);
+                u32 cp = fgg::decode_utf8(txt, i);
                 u8char glyph_str;
 
                 if (cp < 0x80) {

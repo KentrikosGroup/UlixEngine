@@ -1,6 +1,6 @@
 #pragma once
-#include "types.hpp"
-#include "ulix/autohasher.hpp"
+#include <ulix/types.hpp>
+#include <ulix/autohasher.hpp>
 
 namespace ulx {
     class size {

@@ -1,21 +1,18 @@
 #pragma once
-
-#include "callback.hpp"
-#include "cursor.hpp"
-#include "font.hpp"
-#include "glm/ext/vector_float4.hpp"
-#include "log.hpp"
-#include "box.hpp"
-#include "point.hpp"
-#include "requires.hpp"
-#include "size.hpp"
-#include "color.hpp"
-#include "align.hpp"
-#include "pack.hpp"
-#include "types.hpp"
-#include "ulix/path.hpp"
-#include <utility>
 #include <variant>
+#include <glm/ext/vector_float4.hpp>
+#include <ulix/callback.hpp>
+#include <ulix/cursor.hpp>
+#include <ulix/font.hpp>
+#include <ulix/log.hpp>
+#include <ulix/box.hpp>
+#include <ulix/point.hpp>
+#include <ulix/requires.hpp>
+#include <ulix/size.hpp>
+#include <ulix/color.hpp>
+#include <ulix/align.hpp>
+#include <ulix/pack.hpp>
+#include <ulix/path.hpp>
 
 #define ulx_lambda_when (ulx::element& slf)
 #define ulx_lambda_else (ulx::element& slf)
@@ -63,6 +60,7 @@ namespace ulx {
         cursor    m_curs      = arrowcur;
         glm::vec4 m_data      = {1.0f, 0, 1, 0};
         bool      m_is_shadow = false;
+        bool      m_is_single_texture = false;
 
         public: inline constexpr element() = default;
         public: inline constexpr element(strvw id): m_id(id) {}
@@ -107,6 +105,11 @@ namespace ulx {
             return *this;
         }
 
+        public: inline constexpr auto single() -> element& {
+            m_is_single_texture = true;
+            return *this;
+        }
+
         public: template<typename _path>
             requires expect<_path, path>
         inline constexpr auto texture(_path&& bitmap, f32 sigma = 1.0f, u32 radius = 0, u32 taps = 1) -> element& {
@@ -127,12 +130,14 @@ namespace ulx {
 
         public: template<typename _path>
             requires expect<_path, path>
-        inline constexpr auto icon(strvw id, _path&& svg, const ulx::size& s) -> element& {
+        inline constexpr auto icon(strvw id, _path&& svg, const ulx::size& s, bool single = false) -> element& {
             return child(element()
                     .back(color::empty())
                     .size(s)
                     .pos(point::center_to(s, m_size))
-                    .texture(std::forward<_path>(svg), s));
+                    .texture(std::forward<_path>(svg), s)
+                    .when(single, [] ulx_lambda_when { slf.single(); })
+            );
         }
 
         public: template<typename _font>
@@ -209,7 +214,7 @@ namespace ulx {
             c.m_is_shadow = true;
             c.m_data = {f32(inset), exp, 0, 0};
             m_shadows.push_back(c);
-            
+
             return *this;
         }
 
@@ -239,6 +244,7 @@ namespace ulx {
         public: inline constexpr auto get_data() const -> const glm::vec4& { return m_data; }
         public: inline constexpr auto is_shadow() const -> bool { return m_is_shadow; }
         public: inline constexpr auto get_shadows() -> vec<element>& { return m_shadows; }
+        public: inline constexpr auto is_single_texture() const -> bool { return m_is_single_texture; }
     };
 }
 

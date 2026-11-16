@@ -1,8 +1,8 @@
 #pragma once
-#include "requires.hpp"
-#include "scene.hpp"
-#include "types.hpp"
-#include "callback.hpp"
+#include <ulix/requires.hpp>
+#include <ulix/scene.hpp>
+#include <ulix/types.hpp>
+#include <ulix/callback.hpp>
 
 namespace ulx {
     class context;

@@ -1,8 +1,8 @@
 #pragma once
-#include "types.hpp"
-#include "stablestr.hpp"
-#include "requires.hpp"
-#include "ulix/autohasher.hpp"
+#include <ulix/types.hpp>
+#include <ulix/stablestr.hpp>
+#include <ulix/requires.hpp>
+#include <ulix/autohasher.hpp>
 
 namespace ulx {
     class font {

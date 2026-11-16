@@ -1,8 +1,7 @@
 #pragma once
-
-#include "size.hpp"
-#include "winfunc.hpp"
-#include "types.hpp"
+#include <ulix/size.hpp>
+#include <ulix/winfunc.hpp>
+#include <ulix/types.hpp>
 
 namespace ulx::screen {
     inline static auto size() -> ulx::size { 

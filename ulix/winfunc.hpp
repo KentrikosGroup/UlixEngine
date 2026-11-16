@@ -34,9 +34,8 @@ namespace ulx::wfn {
         return nullptr;
     }();
     
-    inline static const UINT system_dpi = GetDpiForSystem();
+    inline static UINT system_dpi = GetDpiForSystem();
     inline static const HINSTANCE hinstance = GetModuleHandleW(nullptr);
-    inline static const f32 system_scale = f32(system_dpi) / 96.0f;
     inline static constexpr f32 base_dpi = 96.0f;
     
     inline constexpr auto logical(f32 physical_pixels) -> ulx::f32 {
@@ -45,9 +44,5 @@ namespace ulx::wfn {
     
     inline constexpr auto physical(f32 logical_pixels) -> ulx::f32 {
         return logical_pixels * (system_dpi / base_dpi);
-    }
-
-    inline constexpr auto make_int_resource(WORD id) -> LPCWSTR {
-        return reinterpret_cast<LPCWSTR>(ULONG_PTR(id));
     }
 }

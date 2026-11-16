@@ -1,6 +1,6 @@
 #pragma once
-#include "types.hpp"
-#include "size.hpp"
+#include <ulix/types.hpp>
+#include <ulix/size.hpp>
 
 namespace ulx {
     class point {

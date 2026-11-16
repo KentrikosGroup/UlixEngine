@@ -1,6 +1,5 @@
 #pragma once
-
-#include "types.hpp"
+#include <ulix/types.hpp>
 
 namespace ulx {
     enum winattr: ulx::u8 {

@@ -1,8 +1,8 @@
 #pragma once
-#include "log.hpp"
-#include "types.hpp"
-#include "ulix/autohasher.hpp"
-#include "ulix/requires.hpp"
+#include <ulix/__inside_impl/log_utils.hpp>
+#include <ulix/types.hpp>
+#include <ulix/autohasher.hpp>
+#include <ulix/requires.hpp>
 #include <cstring>
 
 namespace ulx {
@@ -14,22 +14,22 @@ namespace ulx {
             requires expect<t_strvw, strvw>
         inline constexpr stablestr(t_strvw view = "") {
             strvw sview = strvw(view);
+            static_assert(size > 0, "stablestr size must be at least 1");
             
-            ulx::log::expect(size > 0, "stablestr.hpp: stablestr(): size: size must be at least 1");
             auto len = std::min(sview.size(), size - 1);
             std::memcpy(str_array.data(), sview.data(), len);
             str_array[len] = '\0';
         }
 
         public: inline constexpr stablestr(const stablestr& other) {
-            ulx::log::expect(size > 0, "stablestr.hpp: stablestr(): size: size must be at least 1");
+            static_assert(size > 0, "stablestr size must be at least 1");
             auto len = std::min(other.len(), size - 1);
             std::memcpy(str_array.data(), other.cstr(), len);
             str_array[len] = '\0';
         }
 
         public: inline constexpr stablestr(stablestr&& other) {
-            ulx::log::expect(size > 0, "stablestr.hpp: stablestr(): size: size must be at least 1");
+            static_assert(size > 0, "stablestr size must be at least 1");
             auto len = std::min(other.len(), size - 1);
             std::memcpy(str_array.data(), other.cstr(), len);
             str_array[len] = '\0';
@@ -63,20 +63,6 @@ namespace ulx {
             return *this;
         }
 
-        // public: inline constexpr auto operator=(const char* c_str) -> stablestr& {
-        //     auto len = std::min(std::strlen(c_str), size - 1);
-        //     std::memcpy(str_array.data(), c_str, len);
-        //     str_array[len] = '\0';
-        //     return *this;
-        // }
-
-        // public: inline constexpr auto operator=(char* c_str) -> stablestr& {
-        //     auto len = std::min(std::strlen(c_str), size - 1);
-        //     std::memcpy(str_array.data(), c_str, len);
-        //     str_array[len] = '\0';
-        //     return *this;
-        // }
-
         public: inline constexpr auto operator!() -> bool {
             return strvw(str_array) == "";
         }
@@ -89,15 +75,23 @@ namespace ulx {
             auto cur_len = std::strlen(cstr());
             auto remaining = size - cur_len - 1;
             auto copy_len = std::min(sview.size(), remaining);
+            
+            if (copy_len < sview.size())
+                log::uwarn("the maximum size of the stablestr is {}, but the size after splicing is greater, directly truncated the excess part, the program will executing normally", size);
+            
             std::memcpy(str_array.data() + cur_len, sview.data(), copy_len);
             str_array[cur_len + copy_len] = '\0';
             return *this;
         }
-
+        
         public: inline constexpr auto operator+=(const stablestr& str) -> stablestr& {
             auto cur_len = std::strlen(cstr());
             auto remaining = size - cur_len - 1;
             auto copy_len = std::min(str.len(), remaining);
+            
+            if (copy_len < str.len())
+                log::uwarn("the maximum size of the stablestr is {}, but the size after splicing is greater, directly truncated the excess part, the program will executing normally", size);
+            
             std::memcpy(str_array.data() + cur_len, str.cstr(), copy_len);
             str_array[cur_len + copy_len] = '\0';
             return *this;
@@ -108,7 +102,7 @@ namespace ulx {
             if (cur_len < size - 1) {
                 str_array[cur_len] = ch;
                 str_array[cur_len + 1] = '\0';
-            }
+            } else log::uwarn("the maximum size of the stablestr is {}, but the size after splicing is greater, directly truncated the excess part, the program will executing normally", size);
             return *this;
         }
 
@@ -131,13 +125,7 @@ namespace ulx {
         public: inline constexpr auto operator+(const stablestr& other) const -> stablestr {
             return *this + other.cstr();
         }
-
-        // public: inline constexpr auto operator+(const char* cstr) const -> stablestr {
-        //     stablestr result(*this);
-        //     result += strvw(cstr);
-        //     return result;
-        // }
-
+        
         public: friend inline constexpr auto operator+(char lhs, const stablestr& rhs) -> stablestr {
             stablestr result(strvw(&lhs, 1));
             result += rhs.cstr();

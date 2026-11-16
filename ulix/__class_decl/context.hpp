@@ -1,16 +1,16 @@
 #pragma once
-#include "../element.hpp"
-#include "../pixmap.hpp"
-#include "../appinfo.hpp"
-#include "../renderinfo.hpp"
-#include "../wininfo.hpp"
-#include "../__inside_impl/vulkan_classes.hpp"
-#include "../__inside_impl/vulkan_shader_data_classes.hpp"
-#include "../__inside_impl/atlas_texture_merger.hpp"
-#include "../scene.hpp"
-#include "../cursor.hpp"
-#include "ulix/path.hpp"
-#include "ulix/types.hpp"
+#include <ulix/element.hpp>
+#include <ulix/pixmap.hpp>
+#include <ulix/appinfo.hpp>
+#include <ulix/renderinfo.hpp>
+#include <ulix/wininfo.hpp>
+#include <ulix/__inside_impl/vulkan_classes.hpp>
+#include <ulix/__inside_impl/vulkan_shader_data_classes.hpp>
+#include <ulix/__inside_impl/atlas_texture_merger.hpp>
+#include <ulix/scene.hpp>
+#include <ulix/cursor.hpp>
+#include <ulix/path.hpp>
+#include <ulix/types.hpp>
 #include <d3d11.h>
 #include <dxgi1_2.h>
 #include <wrl/client.h>
@@ -21,9 +21,9 @@ namespace ulx {
     class context {
         // texture caches
         private:
-            hashmap<element::texture::bitmap, __uii::ats::idx> m_bitmap_cache;
-            hashmap<element::texture::vector, __uii::ats::idx> m_vector_cache;
-            hashmap<element::texture::text, __uii::ats::idx>   m_font_cache;
+            hashmap<element::texture::bitmap, ats::idx> m_bitmap_cache;
+            hashmap<element::texture::vector, ats::idx> m_vector_cache;
+            hashmap<element::texture::text, ats::idx>   m_font_cache;
 
             u32 m_atlas_x = 0, 
                 m_atlas_y = 0;
@@ -44,9 +44,9 @@ namespace ulx {
         private:
             rendercallback m_rendercallback;
 
-            vec<__uii::vsdces::vertex>  m_vertices;
-            vec<u32>                    m_indices;
-            __uii::vsdces::pushconstant m_pushconstant;
+            vec<vks::vertex>  m_vertices;
+            vec<u32>          m_indices;
+            vks::pushconstant m_pushconstant;
 
             scene m_scene;
             color m_background_color;
@@ -68,7 +68,7 @@ namespace ulx {
                 const element& elem, 
                 const size& siz, const point& pos, 
                 u32& render_index, u32 texture_index, 
-                __uii::ats::uv& uv, u8 elemtype) -> void;
+                ats::uv& uv, u8 elemtype) -> void;
             auto compute_layout(
                 size& siz, point& pos, 
                 const size& parent_size, const point& parent_pos, 
@@ -154,17 +154,17 @@ namespace ulx {
             HANDLE                     m_shared_handle      = nullptr;
 
             
-            __uii::vkclses::buffer               m_texture_buffer,
-                                                 m_vertex_buffer,
-                                                 m_index_buffer;
-            __uii::vkclses::physical_device_info m_physical_device_infos;
-            __uii::vkclses::device_queues        m_device_queues;
-            __uii::vkclses::image                m_shared_image;
+            vkc::buffer               m_texture_buffer,
+                                      m_vertex_buffer,
+                                      m_index_buffer;
+            vkc::physical_device_info m_physical_device_infos;
+            vkc::device_queues        m_device_queues;
+            vkc::image                m_shared_image;
 
             
             vec<pixmap>                        m_texture_image_pixmaps;
             vec<VkDescriptorSet>               m_descriptor_sets;
-            vec<__uii::vkclses::image>         m_texture_images;
+            vec<vkc::image>                    m_texture_images;
             vec<VkCommandBuffer>               m_command_buffers;
             vec<VkSemaphore>                   m_image_available_semaphores;
             vec<VkFence>                       m_in_flight_fences;
@@ -212,7 +212,7 @@ namespace ulx {
             auto push_texture_images() -> void;
             auto recreate_texture_buffer() -> void;
             auto create_texture_images() -> VkDeviceSize;
-            auto update_texture_images(ulx::size& siz, const element& object, u32& texture_index, u8& elemtype) -> __uii::ats::uv;
+            auto update_texture_images(ulx::size& siz, const element& object, u32& texture_index, u8& elemtype) -> ats::uv;
             auto create_descriptor_update_template() -> void;
             auto update_texture_descriptors() -> void;
             auto create_render_finished_semaphores() -> void;
@@ -246,7 +246,7 @@ namespace ulx {
             
         public:
             inline constexpr context() = default;
-            constexpr context(const appinfo& application_info, const wininfo& window_info, const renderinfo& render_info);
+            constexpr context(const appinfo& appinfo, const wininfo& wininfo, const renderinfo& renderinfo);
             ~context();
     };
 }
